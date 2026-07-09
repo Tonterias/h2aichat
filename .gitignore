@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Secretos y estado local (NUNCA subir)
+.env
+auth.json
+**/auth.json
+memory/*.db
+memory/.locks/
+agent_memory/
+errors/
+
+# Sistema
+.DS_Store
+*.log
