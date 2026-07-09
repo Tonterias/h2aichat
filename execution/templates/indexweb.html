@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>H2AI Chat — Plataforma de diálogo multi-agente de inteligencia artificial</title>
+<!-- Google Fonts retirado (decision PO 2026-06-12): fuente del sistema, sin pasar IPs a Google (GDPR) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<style>
+:root {
+  --pink: #E8186E;
+  --pink-light: #FFF0F6;
+  --pink-border: #F9A8C9;
+  --pink-dark: #C9145F;
+  --bg: #F6F5F2;
+  --surface: #FFFFFF;
+  --surface2: #F0EEE9;
+  --border: rgba(0,0,0,0.08);
+  --border2: rgba(0,0,0,0.14);
+  --text: #1A1A1A;
+  --text2: #5A5855;
+  --text3: #9A9793;
+  --dark: #0F0F14;
+  --dark2: #1A1A2E;
+  --mono: 'DM Mono', monospace;
+  --sans: 'Syne', sans-serif;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+  --shadow-pink: 0 4px 20px rgba(232,24,110,0.22);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+a { text-decoration: none; color: inherit; }
+input, button, select, textarea { font-family: var(--sans); }
+button { cursor: pointer; border: none; background: none; }
+
+.page { display: none; min-height: 100vh; animation: fadeIn .3s ease; }
+.page.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── NAV ── */
+.nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; height: 60px; background: rgba(246,245,242,0.85); backdrop-filter: blur(12px); border-bottom: 0.5px solid var(--border); display: flex; align-items: center; padding: 0 24px; }
+.nav-inner { display: flex; align-items: center; width: 100%; max-width: 1200px; margin: 0 auto; gap: 0; }
+.nav-logo { display: flex; align-items: center; gap: 9px; margin-right: auto; cursor: pointer; }
+.nav-logo-mark { width: 30px; height: 30px; background: var(--pink); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+.nav-logo-text { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+.nav-logo-tagline { font-size: 9px; font-weight: 500; color: var(--text2); letter-spacing: 0.1px; }
+/* UX3-2: Beta NO va en el nav (vive en el cuerpo del hero); solo reaparece en STAGING como aviso azul. */
+.beta-badge { display: none; font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--pink); background: var(--pink-light); border: 0.5px solid var(--pink-border); border-radius: 5px; padding: 2px 5px; margin-left: 7px; }
+/* FASE 30: tema PRE-PROD (azul suave) en la landing — solo en staging */
+body.staging-env .nav { background: rgba(214,228,251,0.92); border-bottom-color: #bcd3f5; }
+body.staging-env .beta-badge { display: inline-block; color: #1A5FB4; background: #D6E4FB; border-color: #bcd3f5; }
+/* UX3-2: el "Beta" que antes iba en el nav vive ahora en el cuerpo del hero (una sola vez). */
+.hero-beta { display: inline-flex; align-items: center; margin-left: 8px; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--pink); background: #fff; border: 0.5px solid var(--pink-border); border-radius: 5px; padding: 1px 6px; }
+.nav-links { display: flex; align-items: center; gap: 4px; margin: 0 24px; }
+.nav-link { padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--text2); border-radius: var(--r-sm); transition: all 0.15s; }
+.nav-link:hover { background: var(--surface2); color: var(--text); }
+.nav-link.active { color: var(--pink); }
+.nav-actions { display: flex; align-items: center; gap: 8px; }
+/* AC-10: selector de idioma. El activo se resalta segun <html lang> (server-side, sin parpadeo). */
+.langsw { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; margin: 0 14px; }
+.langsw a { text-decoration: none; color: var(--text2); opacity: 0.5; padding: 2px 5px; border-radius: var(--r-sm); transition: all 0.15s; }
+.langsw a:hover { opacity: 0.85; }
+html[lang="es"] .langsw .lang-es, html[lang="en"] .langsw .lang-en { opacity: 1; color: var(--pink); }
+.btn-ghost { padding: 7px 16px; font-size: 13px; font-weight: 500; color: var(--text2); border-radius: var(--r-sm); transition: all 0.15s; }
+.btn-ghost:hover { background: var(--surface2); color: var(--text); }
+.btn-primary { padding: 8px 18px; font-size: 13px; font-weight: 600; color: #fff; background: var(--pink); border-radius: var(--r-sm); transition: all 0.15s; box-shadow: var(--shadow-pink); }
+.btn-primary:hover { background: var(--pink-dark); }
+.btn-primary.lg { padding: 13px 28px; font-size: 15px; border-radius: var(--r-md); }
+.btn-outline { padding: 8px 18px; font-size: 13px; font-weight: 500; border: 0.5px solid var(--border2); border-radius: var(--r-sm); transition: all 0.15s; background: var(--surface); }
+.btn-outline:hover { border-color: var(--pink); color: var(--pink); }
+.btn-outline.lg { padding: 13px 28px; font-size: 15px; border-radius: var(--r-md); }
+
+/* ── HERO ── */
+.hero { padding-top: 140px; padding-bottom: 80px; max-width: 860px; margin: 0 auto; padding-left: 24px; padding-right: 24px; text-align: center; }
+.hero-eyebrow { display: inline-flex; align-items: center; gap: 6px; background: var(--pink-light); border: 0.5px solid var(--pink-border); border-radius: 20px; padding: 5px 14px; font-family: var(--mono); font-size: 11px; color: var(--pink); font-weight: 500; margin-bottom: 24px; }
+.hero-eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--pink); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.hero-title { font-size: clamp(38px, 5vw, 68px); font-weight: 800; line-height: 1.08; letter-spacing: -1.5px; margin-bottom: 20px; }
+.hero-title span { color: var(--pink); }
+.hero-sub { font-size: 16px; color: var(--text2); max-width: 560px; margin: 0 auto 32px; line-height: 1.5; }
+.hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+/* ── SECTIONS ── */
+.section { padding: 100px 24px; max-width: 1200px; margin: 0 auto; }
+.section-label { font-family: var(--mono); font-size: 11px; color: var(--pink); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+.section-title { font-size: clamp(28px, 3.5vw, 44px); font-weight: 700; letter-spacing: -0.5px; margin-bottom: 16px; }
+.section-sub { font-size: 15px; color: var(--text2); max-width: 560px; line-height: 1.5; }
+
+/* ── FEATURES ── */
+.features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 48px; }
+.feature-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r-lg); padding: 28px; transition: all 0.2s; }
+.feature-card:hover { box-shadow: var(--shadow); border-color: var(--pink-border); }
+.feature-icon { width: 44px; height: 44px; background: var(--pink-light); border-radius: var(--r-md); display: flex; align-items: center; justify-content: center; color: var(--pink); font-size: 20px; margin-bottom: 16px; }
+.feature-card h3 { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+.feature-card p { font-size: 13px; color: var(--text2); line-height: 1.5; }
+
+/* ── PRICING ── */
+.pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; margin-top: 48px; }
+.pricing-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r-lg); padding: 32px; transition: all 0.2s; }
+.pricing-card:hover { box-shadow: var(--shadow); }
+.pricing-card.featured { border-color: var(--pink); box-shadow: var(--shadow-pink); }
+.pricing-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.pricing-card .price { font-size: 36px; font-weight: 800; margin: 12px 0 4px; }
+.pricing-card .price span { font-size: 14px; font-weight: 400; color: var(--text2); }
+.pricing-card .price-sub { font-size: 12px; color: var(--text3); margin-bottom: 20px; }
+.pricing-card ul { list-style: none; margin-bottom: 24px; }
+.pricing-card li { font-size: 13px; color: var(--text2); padding: 6px 0; display: flex; align-items: center; gap: 8px; }
+.pricing-card li i { color: var(--pink); font-size: 16px; }
+
+/* ── TESTIMONIALS ── */
+.testimonials-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 48px; }
+.testimonial-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r-lg); padding: 28px; }
+.testimonial-card .quote { font-size: 14px; color: var(--text2); line-height: 1.6; font-style: italic; margin-bottom: 16px; }
+.testimonial-card .author { font-size: 13px; font-weight: 600; }
+.testimonial-card .role { font-size: 11px; color: var(--text3); }
+
+/* ── CTA ── */
+.cta-section { background: var(--dark); color: #fff; text-align: center; padding: 100px 24px; }
+.cta-section .section-title { color: #fff; }
+.cta-section .section-sub { color: var(--text3); margin: 0 auto 32px; }
+
+/* ── ABOUT ── */
+.about-mission { max-width: 720px; margin: 0 auto 80px; text-align: center; }
+.about-mission p { font-size: 17px; color: var(--text2); line-height: 1.7; }
+.timeline { max-width: 640px; margin: 0 auto 80px; }
+.timeline-item { display: flex; gap: 16px; padding: 16px 0; border-bottom: 0.5px solid var(--border); }
+.timeline-date { font-family: var(--mono); font-size: 12px; color: var(--pink); font-weight: 500; min-width: 100px; }
+.timeline-text { font-size: 14px; color: var(--text2); line-height: 1.4; }
+.values-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 32px; }
+.value-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r-md); padding: 24px; text-align: center; }
+.value-card .value-icon { font-size: 28px; color: var(--pink); margin-bottom: 10px; }
+.value-card h4 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.value-card p { font-size: 12px; color: var(--text2); line-height: 1.4; }
+
+/* ── AUTH ── */
+.auth-bg { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 100px 24px 40px; background: radial-gradient(ellipse at top, rgba(232,24,110,0.04) 0%, transparent 60%), var(--bg); }
+.auth-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r-xl); padding: 40px; width: 100%; max-width: 420px; box-shadow: var(--shadow); }
+.auth-card h2 { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 4px; }
+.auth-card .auth-sub { font-size: 13px; color: var(--text2); text-align: center; margin-bottom: 28px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+.form-input { width: 100%; padding: 10px 14px; font-size: 14px; border: 0.5px solid var(--border2); border-radius: var(--r-md); background: var(--bg); color: var(--text); outline: none; transition: border .15s; }
+.form-input:focus { border-color: var(--pink); box-shadow: 0 0 0 3px rgba(232,24,110,0.1); }
+.pw-wrap { position: relative; }
+.pw-wrap .form-input { padding-right: 42px; }
+.pw-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text3); font-size: 19px; line-height: 1; padding: 6px; display: flex; align-items: center; }
+.pw-eye:hover { color: var(--text); }
+.form-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.form-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text2); }
+.form-check input { accent-color: var(--pink); }
+.form-link { font-size: 13px; color: var(--pink); font-weight: 500; }
+.form-link:hover { text-decoration: underline; }
+.btn-full { width: 100%; padding: 12px; font-size: 15px; font-weight: 600; color: #fff; background: var(--pink); border-radius: var(--r-md); transition: all 0.15s; box-shadow: var(--shadow-pink); }
+.btn-full:hover { background: var(--pink-dark); }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 0.5px; background: var(--border); }
+.auth-divider span { font-size: 11px; color: var(--text3); font-weight: 500; }
+.oauth-btns { display: flex; gap: 10px; }
+.oauth-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; font-size: 13px; font-weight: 500; border: 0.5px solid var(--border2); border-radius: var(--r-md); background: var(--surface); color: var(--text); transition: all 0.15s; }
+.oauth-btn:hover { background: var(--bg); }
+.auth-footer { text-align: center; font-size: 13px; color: var(--text3); margin-top: 20px; }
+.auth-footer a { color: var(--pink); font-weight: 500; }
+
+/* ── REGISTER STEPS ── */
+.steps { display: flex; justify-content: center; gap: 12px; margin-bottom: 28px; }
+.step-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; border: 0.5px solid var(--border2); color: var(--text3); background: var(--bg); }
+.step-num.active { background: var(--pink); color: #fff; border-color: var(--pink); }
+.step-num.done { background: var(--pink-light); color: var(--pink); border-color: var(--pink-border); }
+.pw-strength { height: 4px; border-radius: 2px; background: #eee; margin-top: 6px; overflow: hidden; }
+.pw-strength-bar { height: 100%; border-radius: 2px; width: 0; transition: width .3s, background .3s; }
+.pw-strength-label { font-size: 10px; color: var(--text3); margin-top: 4px; }
+
+/* ── FOOTER ── */
+.footer { border-top: 0.5px solid var(--border); padding: 32px 24px; text-align: center; }
+.footer p { font-size: 12px; color: var(--text3); }
+.footer a { color: var(--pink); }
+
+/* ── TRANSITIONS ── */
+.feature-card, .testimonial-card, .value-card { transition: all 0.25s ease; }
+.page { animation: fadeIn 0.35s ease; }
+
+/* ── MOBILE ── */
+/* UX3-3: ocultar enlaces de nav ya en tablet-portrait (no solo movil); reaparecen en landscape/ancho */
+@media (max-width: 960px) { .nav-links { display: none; } }
+/* UX3-2: ES/EN en columna en movil estrecho (para que quepan Mi cuenta / Ir al chat) + marca en una linea */
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .langsw { flex-direction: column; gap: 0; line-height: 1.05; margin: 0 8px; }
+  .nav-logo-text { white-space: nowrap; }
+  /* hallazgo UAT PO 2026-06-12: "Iniciar sesion" debe verse tambien en movil */
+  .hero { padding-top: 100px; padding-bottom: 40px; }
+  .hero-title { font-size: 32px; letter-spacing: -0.5px; }
+  .hero-sub { font-size: 14px; }
+  .hero-actions { flex-direction: column; align-items: stretch; }
+  .section { padding: 48px 16px; }
+  .section-title { font-size: 24px; }
+  .cta-section { padding: 48px 16px; }
+  .auth-card { padding: 24px 16px; margin: 0 8px; }
+  .features-grid, .testimonials-grid, .values-grid { grid-template-columns: 1fr; }
+  .timeline-item { flex-direction: column; gap: 4px; }
+  .nav { padding: 0 16px; }
+  .footer { padding: 24px 16px; }
+}
+
+/* ── GALLERY ── */
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.gallery-section{margin-bottom:32px}
+.gallery-section-title{font-family:var(--mono);font-size:11px;color:var(--pink);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:500}
+.gallery-card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--r-lg);padding:20px;transition:all .2s;cursor:pointer;display:flex;flex-direction:column;gap:6px;text-decoration:none;color:inherit}
+.gallery-card:hover{box-shadow:var(--shadow);border-color:var(--pink-border)}
+.gallery-card h3{font-size:16px;font-weight:600;color:var(--text)}
+.gallery-card .g-desc{font-size:13px;color:var(--text2);line-height:1.4}
+.gallery-card .g-meta{font-size:11px;color:var(--text3)}
+
+/* ── CONVERSATIONS (old accordion, now unused but kept for about page) ── */
+.conv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 32px; }
+.conv-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--r-lg); padding: 20px; cursor: pointer; transition: all 0.25s ease; }
+.conv-card:hover { box-shadow: var(--shadow); border-color: var(--pink-border); }
+.conv-card h4 { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.conv-card .count { font-family: var(--mono); font-size: 10px; color: var(--pink); background: var(--pink-light); padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.conv-card .desc { font-size: 12px; color: var(--text2); margin-top: 6px; line-height: 1.4; }
+.conv-list { display: none; margin-top: 12px; border-top: 0.5px solid var(--border); padding-top: 10px; }
+.conv-card.open .conv-list { display: block; }
+.conv-link { display: flex; align-items: center; gap: 6px; padding: 5px 0; font-size: 12px; color: var(--text2); transition: color 0.15s; text-decoration: none; }
+.conv-link:hover { color: var(--pink); }
+.conv-link i { font-size: 14px; color: var(--pink); opacity: 0.7; }
+</style>
+</head>
+<body>
+<!-- FASE 30: marca de PRE-PROD en la landing. Solo en staging.* -->
+<script>if(/^staging\./.test(location.hostname)){document.body.classList.add('staging-env');document.title='[PRE-PROD] '+document.title;document.addEventListener('DOMContentLoaded',function(){var b=document.getElementById('envBadge');if(b)b.textContent='PRE-PROD';});}</script>
+
+<!-- ── NAV ── -->
+<!--CHROME_NAV-->
+
+<!-- ═══ PAGE: HOME ═══ -->
+<div class="page active" id="page-home">
+
+<section class="hero">
+  <div class="hero-eyebrow">
+    <div class="hero-eyebrow-dot"></div>
+    {{web.hero.eyebrow}}
+    <span class="hero-beta">Beta</span>
+  </div>
+  <h1 class="hero-title">{{web.hero.titulo}}</h1>
+  <p class="hero-sub">{{web.hero.sub}}</p>
+  <div class="hero-actions">
+    <button class="btn-primary lg" onclick="document.getElementById('gallery').scrollIntoView({behavior:'smooth'})">{{web.hero.cta_gallery}}</button>
+    <button class="btn-outline lg" onclick="navTo('about')">{{web.hero.cta_about}}</button>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-label">{{web.features.label}}</div>
+  <h2 class="section-title">{{web.features.title}}</h2>
+  <p class="section-sub">{{web.features.sub}}</p>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon"><i class="ti ti-users"></i></div>
+      <h3>{{web.features.f1_title}}</h3>
+      <p>{{web.features.f1_text}}</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><i class="ti ti-message-circle"></i></div>
+      <h3>{{web.features.f2_title}}</h3>
+      <p>{{web.features.f2_text}}</p>
+    </div>
+    <div class="feature-card" style="display:none">
+      <div class="feature-icon"><i class="ti ti-palette"></i></div>
+      <h3>{{web.features.f3_title}}</h3>
+      <p>{{web.features.f3_text}}</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background:var(--surface);max-width:100%">
+<div style="max-width:860px;margin:0 auto;padding:0 24px;text-align:center">
+  <div class="section-label">{{web.demo.label}}</div>
+  <h2 class="section-title">{{web.demo.title}}</h2>
+  <div style="padding:56.25% 0 0 0;position:relative;border-radius:var(--r-lg);overflow:hidden;margin-top:16px">
+    <iframe src="https://player.vimeo.com/video/1200132535?badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" referrerpolicy="strict-origin-when-cross-origin" style="position:absolute;top:0;left:0;width:100%;height:100%" title="h2aichat"></iframe>
+  </div>
+  <script src="https://player.vimeo.com/api/player.js"></script>
+</div>
+</section>
+
+<section id="gallery" class="section" style="background:var(--surface);max-width:100%">
+<div style="max-width:1200px;margin:0 auto;padding:0 24px">
+  <div class="section-label">{{web.gallery.label}}</div>
+  <h2 class="section-title">{{web.gallery.title}}</h2>
+  <p class="section-sub">{{web.gallery.sub}}</p>
+  <div id="galleryGrid" style="margin-top:24px"></div>
+  <div style="text-align:center;margin-top:32px">
+    <a href="/preguntas" style="display:inline-block;background:var(--pink);color:#fff;padding:13px 28px;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;box-shadow:var(--shadow-pink)">{{web.gallery.see_all}} &rarr;</a>
+  </div>
+</div>
+</section>
+
+<!--CHROME_FOOTER-->
+</div>
+
+<!-- ═══ PAGE: ABOUT ═══ -->
+<div class="page" id="page-about">
+
+<section class="section" style="padding-top:120px">
+  <div class="about-mission">
+    <div class="section-label" style="text-align:center">{{web.about.mission_label}}</div>
+    <h2 class="section-title" style="text-align:center">{{web.about.mission_title}}</h2>
+    <p>{{web.about.mission_text}}</p>
+  </div>
+
+  <div style="max-width:720px;margin:0 auto 80px;background:#FFF0F6;border:1px solid #F9A8C9;border-radius:16px;padding:40px 28px;text-align:center">
+    <div class="section-label" style="text-align:center">{{web.about.founding_label}}</div>
+    <h2 style="font-size:28px;font-weight:700;margin:6px 0 10px">{{web.about.founding_title}}</h2>
+    <p style="font-size:15px;color:var(--text2);line-height:1.6;max-width:520px;margin:0 auto 20px">{{web.about.founding_text}}</p>
+    <a href="{{web.about.founding_href}}" class="btn-outline lg" style="display:inline-block;text-decoration:none">{{web.about.founding_cta}}</a>
+  </div>
+
+  <div class="section-label" style="text-align:center">{{web.about.timeline_label}}</div>
+  <h2 class="section-title" style="text-align:center;margin-bottom:32px">{{web.about.timeline_title}}</h2>
+  <div class="timeline">
+    <div class="timeline-item"><div class="timeline-date">{{web.about.tl1_date}}</div><div class="timeline-text">{{web.about.tl1_text}}</div></div>
+    <div class="timeline-item"><div class="timeline-date">{{web.about.tl2_date}}</div><div class="timeline-text">{{web.about.tl2_text}}</div></div>
+    <div class="timeline-item"><div class="timeline-date">{{web.about.tl3_date}}</div><div class="timeline-text">{{web.about.tl3_text}}</div></div>
+    <div class="timeline-item"><div class="timeline-date">{{web.about.tl4_date}}</div><div class="timeline-text">{{web.about.tl4_text}}</div></div>
+  </div>
+
+  <div class="section-label" style="text-align:center">{{web.about.values_label}}</div>
+  <h2 class="section-title" style="text-align:center;margin-bottom:24px">{{web.about.values_title}}</h2>
+  <div class="values-grid">
+    <div class="value-card">
+      <div class="value-icon"><i class="ti ti-eye"></i></div>
+      <h4>{{web.about.v1_title}}</h4>
+      <p>{{web.about.v1_text}}</p>
+    </div>
+    <div class="value-card">
+      <div class="value-icon"><i class="ti ti-history"></i></div>
+      <h4>{{web.about.v2_title}}</h4>
+      <p>{{web.about.v2_text}}</p>
+    </div>
+    <div class="value-card">
+      <div class="value-icon"><i class="ti ti-language"></i></div>
+      <h4>{{web.about.v3_title}}</h4>
+      <p>{{web.about.v3_text}}</p>
+    </div>
+    <div class="value-card">
+      <div class="value-icon"><i class="ti ti-heart-handshake"></i></div>
+      <h4>{{web.about.v4_title}}</h4>
+      <p>{{web.about.v4_text}}</p>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <p>{{web.about.footer_copy}}<a href="#" onclick="navTo('privacidad')">{{web.about.footer_privacy}}</a> · <a href="#" onclick="navTo('terminos')">{{web.about.footer_terms}}</a></p>
+</footer>
+</div>
+
+<!-- ═══ PAGE: LOGIN ═══ -->
+<div class="page" id="page-login">
+<div class="auth-bg">
+  <div class="auth-card">
+    <h2>{{web.auth.login_title}}</h2>
+    <p class="auth-sub">{{web.auth.login_sub}}</p>
+    <div class="form-group">
+      <label>{{web.auth.email}}</label>
+      <input type="email" class="form-input" id="login-email" placeholder="{{web.auth.email_ph}}">
+    </div>
+    <div class="form-group">
+      <label>{{web.auth.password}}</label>
+      <div class="pw-wrap"><input type="password" class="form-input" id="login-password" placeholder="········" onkeydown="if(event.key==='Enter')doLogin()"><button type="button" class="pw-eye" onclick="togglePw(this)" aria-label="{{web.auth.pw_toggle}}"><i class="ti ti-eye"></i></button></div>
+    </div>
+    <div class="form-row">
+      <label class="form-check"><input type="checkbox"> {{web.auth.remember}}</label>
+      <a href="#" class="form-link" onclick="navTo('forgot')">{{web.auth.forgot_link}}</a>
+    </div>
+    <div id="login-error" style="display:none;color:#E8186E;font-size:13px;margin-bottom:10px"></div>
+    <button class="btn-full" onclick="doLogin()">{{web.auth.login_btn}}</button>
+    <!-- OAuth llegara en FASE 20.5 -->
+    <div class="auth-footer">{{web.auth.no_account}} <a href="#" onclick="navTo('register')">{{web.auth.register_link}}</a></div>
+    <div class="auth-footer" style="font-size:11px;margin-top:8px">{{web.auth.copyright}}<a href="/web#privacidad" target="_blank" rel="noopener">{{web.auth.privacy}}</a> · <a href="/web#terminos" target="_blank" rel="noopener">{{web.auth.terms}}</a></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ PAGE: FORGOT PASSWORD (FASE 20.3c) ═══ -->
+<div class="page" id="page-forgot">
+<div class="auth-bg">
+  <div class="auth-card">
+    <h2>{{web.auth.forgot_title}}</h2>
+    <p class="auth-sub">{{web.auth.forgot_sub}}</p>
+    <div class="form-group">
+      <label>{{web.auth.email}}</label>
+      <input type="email" class="form-input" id="forgot-email" placeholder="{{web.auth.email_ph}}" onkeydown="if(event.key==='Enter')doForgot()">
+    </div>
+    <div id="forgot-msg" style="display:none;font-size:13px;margin-bottom:10px"></div>
+    <button class="btn-full" onclick="doForgot()">{{web.auth.forgot_btn}}</button>
+    <div class="auth-footer"><a href="#" onclick="navTo('login')">{{web.auth.back_login}}</a></div>
+    <div class="auth-footer" style="font-size:11px;margin-top:8px">{{web.auth.copyright}}<a href="/web#privacidad" target="_blank" rel="noopener">{{web.auth.privacy}}</a> · <a href="/web#terminos" target="_blank" rel="noopener">{{web.auth.terms}}</a></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ PAGE: PRIVACIDAD (FASE 20.8a) ═══ -->
+<div class="page" id="page-privacidad">
+<div style="max-width:760px;margin:0 auto;padding:90px 24px 60px;font-size:14px;line-height:1.7;color:#3a3835">
+  <h1 style="font-size:26px;margin-bottom:4px">{{web.legal.privacy_title}}</h1>
+  <p style="color:#888;font-size:12px">{{web.legal.version}}</p>
+  <p style="color:#888;font-size:12px;font-style:italic">{{web.legal.notice}}</p>
+  <h3>{{web.legal.p_responsable_h}}</h3>
+  <p>{{web.legal.p_responsable}}</p>
+  <h3>{{web.legal.p_datos_h}}</h3>
+  <p>{{web.legal.p_datos}}</p>
+  <h3>{{web.legal.p_ia_h}}</h3>
+  <p>{{web.legal.p_ia}}</p>
+  <h3>{{web.legal.p_encargados_h}}</h3>
+  <p>{{web.legal.p_encargados}}</p>
+  <h3>{{web.legal.p_conservacion_h}}</h3>
+  <p>{{web.legal.p_conservacion}}</p>
+  <h3>{{web.legal.p_derechos_h}}</h3>
+  <p>{{web.legal.p_derechos}}</p>
+  <h3>{{web.legal.p_cookies_h}}</h3>
+  <p>{{web.legal.p_cookies}}</p>
+  <p style="margin-top:28px"><a href="#" onclick="navTo('home')" style="color:#E8186E">{{web.legal.back}}</a> · <a href="#" onclick="navTo('terminos')" style="color:#E8186E">{{web.legal.terms_title}}</a></p>
+</div>
+</div>
+
+<!-- ═══ PAGE: TÉRMINOS (FASE 20.8a) ═══ -->
+<div class="page" id="page-terminos">
+<div style="max-width:760px;margin:0 auto;padding:90px 24px 60px;font-size:14px;line-height:1.7;color:#3a3835">
+  <h1 style="font-size:26px;margin-bottom:4px">{{web.legal.terms_title}}</h1>
+  <p style="color:#888;font-size:12px">{{web.legal.version}}</p>
+  <p style="color:#888;font-size:12px;font-style:italic">{{web.legal.notice}}</p>
+  <h3>{{web.legal.t_servicio_h}}</h3>
+  <p>{{web.legal.t_servicio}}</p>
+  <h3>{{web.legal.t_planes_h}}</h3>
+  <p>{{web.legal.t_planes}}</p>
+  <h3>{{web.legal.t_ia_h}}</h3>
+  <p>{{web.legal.t_ia}}</p>
+  <h3>{{web.legal.t_responsabilidad_h}}</h3>
+  <p>{{web.legal.t_responsabilidad}}</p>
+  <h3>{{web.legal.t_privacidad_h}}</h3>
+  <p>{{web.legal.t_privacidad}}</p>
+  <h3>{{web.legal.t_uso_h}}</h3>
+  <p>{{web.legal.t_uso}}</p>
+  <h3>{{web.legal.t_cuenta_h}}</h3>
+  <p>{{web.legal.t_cuenta}}</p>
+  <h3>{{web.legal.t_cambios_h}}</h3>
+  <p>{{web.legal.t_cambios}}</p>
+  <p style="margin-top:28px"><a href="#" onclick="navTo('home')" style="color:#E8186E">{{web.legal.back}}</a> · <a href="#" onclick="navTo('privacidad')" style="color:#E8186E">{{web.legal.privacy_title}}</a></p>
+</div>
+</div>
+
+<!-- ═══ PAGE: REGISTER ═══ -->
+<div class="page" id="page-register">
+<div class="auth-bg">
+  <div class="auth-card">
+    <h2>{{web.auth.reg_title}}</h2>
+    <p class="auth-sub">{{web.auth.reg_sub}}</p>
+    <div class="steps">
+      <div class="step-num active" id="sn1">1</div>
+      <div class="step-num" id="sn2">2</div>
+    </div>
+
+    <div id="reg-step-1">
+      <div class="form-group"><label>{{web.auth.name}}</label><input type="text" class="form-input" id="reg-name" placeholder="{{web.auth.name_ph}}"></div>
+      <div class="form-group"><label>{{web.auth.email}}</label><input type="email" class="form-input" id="reg-email" placeholder="{{web.auth.email_ph}}"></div>
+      <div class="form-group">
+        <label>{{web.auth.password}}</label>
+        <div class="pw-wrap"><input type="password" class="form-input" id="reg-password" placeholder="{{web.auth.pw_min_ph}}" oninput="checkStrength(this.value)"><button type="button" class="pw-eye" onclick="togglePw(this)" aria-label="{{web.auth.pw_toggle}}"><i class="ti ti-eye"></i></button></div>
+        <div class="pw-strength"><div class="pw-strength-bar" id="pw-strength-bar"></div></div>
+        <div class="pw-strength-label" id="pw-strength-label">{{web.auth.pw_strength_empty}}</div>
+      </div>
+      <button class="btn-full" onclick="nextStep(2)">{{web.auth.next}}</button>
+    </div>
+
+    <div id="reg-step-2" style="display:none">
+      <div class="form-group">
+        <label class="form-check" style="margin-top:8px"><input type="checkbox" id="reg-adult"> {{web.auth.adult}}</label>
+        <label class="form-check" style="margin-top:8px"><input type="checkbox" id="reg-terms"> {{web.auth.accept_pre}}<a href="/web#terminos" target="_blank" rel="noopener" class="form-link">{{web.auth.accept_terms}}</a>{{web.auth.accept_mid}}<a href="/web#privacidad" target="_blank" rel="noopener" class="form-link">{{web.auth.accept_privacy}}</a></label>
+      </div>
+      <div id="reg-error" style="display:none;color:#E8186E;font-size:13px;margin-bottom:10px"></div>
+      <button class="btn-full" onclick="doRegister()">{{web.auth.reg_btn}}</button>
+    </div>
+
+    <div class="auth-footer" style="margin-top:12px">{{web.auth.have_account}} <a href="#" onclick="navTo('login')">{{web.auth.login_link}}</a></div>
+    <div class="auth-footer" style="font-size:11px;margin-top:8px">{{web.auth.copyright}}<a href="/web#privacidad" target="_blank" rel="noopener">{{web.auth.privacy}}</a> · <a href="/web#terminos" target="_blank" rel="noopener">{{web.auth.terms}}</a></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ PAGE: MI CUENTA (FASE 20.1-UX) ═══ -->
+<div class="page" id="page-cuenta">
+<style>
+#page-cuenta .acct-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+#page-cuenta .acct-card h3{margin:0 0 10px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text2)}
+#page-cuenta .acct-card p{margin:0}
+#page-cuenta .acct-btn{border:none;border-radius:9px;padding:11px 18px;font-size:13px;font-weight:600;cursor:pointer}
+#page-cuenta .acct-btn-pink{background:#E8186E;color:#fff}
+#page-cuenta .acct-logout{background:#fff;border:1.5px solid var(--text,#1a1a1a);color:var(--text,#1a1a1a);display:inline-flex;align-items:center;gap:8px;font-size:14px;padding:12px 22px}
+#page-cuenta .acct-logout:hover{background:var(--text,#1a1a1a);color:#fff}
+#page-cuenta .acct-danger{margin-top:72px;border:1px solid #e8c4bc;border-radius:14px;padding:20px 22px;background:#fdf6f5}
+#page-cuenta .acct-danger h3{margin:0 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#C0392B}
+#page-cuenta .acct-danger .acct-btn{background:#C0392B;color:#fff;margin-top:6px}
+</style>
+<div style="max-width:640px;margin:0 auto;padding:100px 24px 90px;font-size:14px;line-height:1.7;color:#3a3835">
+  <h1 style="font-size:26px;margin-bottom:18px">{{web.account.title}}</h1>
+  <div id="cuenta-body"><p>{{web.account.loading}}</p></div>
+  <p style="margin-top:28px"><a href="#" onclick="navTo('home')" style="color:#E8186E">{{web.legal.back}}</a> · <a href="#" onclick="goChat();return false" style="color:#E8186E">{{web.account.gotochat}}</a></p>
+</div>
+</div>
+
+<!-- ═══ PAGE: APP ═══ -->
+<div class="page" id="page-app">
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;padding-top:60px">
+  <div style="font-size:48px;color:var(--pink);opacity:.3"><i class="ti ti-messages"></i></div>
+  <h2 style="font-size:22px;font-weight:600">{{web.app.title}}</h2>
+  <p style="color:var(--text2);font-size:14px">{{web.app.sub}}</p>
+  <button class="btn-primary" onclick="navTo('home')">{{web.app.back_home}}</button>
+</div>
+</div>
+
+<button onclick="openContactWeb()" title="{{web.opinion.title}}" style="position:fixed;right:18px;bottom:18px;z-index:1050;background:#E8186E;color:#fff;border:none;border-radius:24px;padding:11px 16px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(232,24,110,.35)">{{web.opinion.button}}</button>
+
+<!-- ── SPA JS ── -->
+<script>
+/* FASE 33.1 (capa cliente): traduce lo que pinta el JS. El servidor inyecta window.WEB_I18N. */
+function wt(k){ return (window.WEB_I18N && window.WEB_I18N[k]) || k; }
+/* FASE 33.1: al ir al chat, lleva el idioma de la landing a la app (que lee localStorage.lang). */
+function goChat(){ try{ if(window.WEB_LANG) localStorage.setItem('lang', window.WEB_LANG); }catch(e){} window.location='/chat'; }
+function navTo(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const el = document.getElementById('page-' + page);
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  const nl = document.querySelector('[data-nav="' + page + '"]');
+  if (nl) nl.classList.add('active');
+  if (page === 'cuenta') loadCuenta();
+  if (page === 'app') {
+    document.getElementById('navPublic').style.display = 'none';
+    document.getElementById('navPublicActions').style.display = 'none';
+    document.getElementById('navAuth').style.display = 'flex';
+  } else {
+    document.getElementById('navPublic').style.display = 'flex';
+    document.getElementById('navAuth').style.display = 'none';
+  }
+}
+function nextStep(n) {
+  document.getElementById('reg-step-1').style.display = 'none';
+  document.getElementById('reg-step-2').style.display = 'none';
+  document.getElementById('reg-step-' + n).style.display = 'block';
+  [1,2].forEach(i => {
+    const sn = document.getElementById('sn' + i);
+    if (sn) { sn.className = 'step-num'; if (i < n) sn.classList.add('done'); if (i === n) sn.classList.add('active'); }
+  });
+}
+function checkStrength(val) {
+  const bar = document.getElementById('pw-strength-bar');
+  const lbl = document.getElementById('pw-strength-label');
+  let score = 0;
+  if (val.length >= 8) score++;
+  if (/[A-Z]/.test(val)) score++;
+  if (/[0-9]/.test(val)) score++;
+  if (/[^A-Za-z0-9]/.test(val)) score++;
+  const widths = ['0%', '25%', '50%', '75%', '100%'];
+  const colors = ['#E8186E', '#F97316', '#EAB308', '#22C55E', '#16A34A'];
+  const labels = [wt('web.auth.pw_strength_empty'), wt('web.pw.s1'), wt('web.pw.s2'), wt('web.pw.s3'), wt('web.pw.s4')];
+  bar.style.width = widths[score];
+  bar.style.background = colors[score];
+  lbl.textContent = labels[score];
+}
+
+/* ── FASE 20.2f: auth real contra /auth/* ── */
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+/* FASE 20.3c: olvido de contraseña */
+async function doForgot() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const msg = document.getElementById('forgot-msg');
+  try {
+    const r = await fetch('/auth/forgot-password', { method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email}) });
+    const data = await r.json();
+    msg.style.color = r.ok ? '#16A34A' : '#E8186E';
+    msg.textContent = data.message || data.detail || wt('web.err.forgot_ok');
+    msg.style.display = 'block';
+  } catch (e) {
+    msg.style.color = '#E8186E';
+    msg.textContent = wt('web.err.server');
+    msg.style.display = 'block';
+  }
+}
+function togglePw(btn) {
+  const inp = btn.parentElement.querySelector('input');
+  const icon = btn.querySelector('i');
+  if (inp.type === 'password') { inp.type = 'text'; if (icon) icon.className = 'ti ti-eye-off'; }
+  else { inp.type = 'password'; if (icon) icon.className = 'ti ti-eye'; }
+}
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  try {
+    const r = await fetch('/auth/login', { method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, password}) });
+    const data = await r.json();
+    if (r.ok && data.token) {
+      localStorage.setItem('h2ai_token', data.token);
+      goChat();
+    } else {
+      showErr('login-error', data.detail || wt('web.err.login_bad'));
+    }
+  } catch (e) { showErr('login-error', wt('web.err.server')); }
+}
+async function doRegister() {
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  if (!document.getElementById('reg-adult').checked) {
+    showErr('reg-error', wt('web.err.need_adult'));
+    return;
+  }
+  if (!document.getElementById('reg-terms').checked) {
+    showErr('reg-error', wt('web.err.need_terms'));
+    return;
+  }
+  try {
+    const r = await fetch('/auth/register', { method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, email, password, accept_terms: true, confirm_adult: true}) });
+    const data = await r.json();
+    if (r.ok && data.token) {
+      localStorage.setItem('h2ai_token', data.token);
+      goChat();
+    } else {
+      nextStep(2);  // el error vive en el paso 2; asegurar que es el visible
+      const detail = data.detail || wt('web.err.reg_failed');
+      const dup = (r.status === 400 || r.status === 409) && /ya existe|registrad/i.test(detail);
+      const errEl = document.getElementById('reg-error');
+      if (errEl) {
+        if (dup) {
+          errEl.innerHTML = wt('web.err.dup_email');
+        } else {
+          errEl.textContent = detail;
+        }
+        errEl.style.display = 'block';
+        errEl.scrollIntoView({block: 'center'});
+      }
+    }
+  } catch (e) { nextStep(2); showErr('reg-error', wt('web.err.server')); }
+}
+/* Deep-link por hash: /web#privacidad, /web#terminos, /web#login... */
+(function initHashNav() {
+  const p = (location.hash || '').slice(1);
+  if (p && document.getElementById('page-' + p)) navTo(p);
+})();
+/* Nav segun sesion: con token, "Ir al chat" en vez de Login/Probar gratis */
+(function initAuthNav() {
+  const actions = document.getElementById('navPublicActions');
+  if (!actions) return;
+  if (localStorage.getItem('h2ai_token')) {
+    actions.innerHTML = '<button class="btn-ghost" onclick="navTo(\'cuenta\')">'+wt('web.nav.account')+'</button>' +
+      '<button class="btn-primary" onclick="goChat()">'+wt('web.account.gotochat')+'</button>';
+  }
+  actions.style.display = 'flex';
+})();
+
+/* ── Feedback / Contacto (B): /api/feedback kind=contact ── */
+function openContactWeb(){
+  const old=document.getElementById('contactModal');if(old)old.remove();
+  const m=document.createElement('div');m.id='contactModal';
+  m.style.cssText='position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:20px';
+  m.innerHTML='<div style="background:#fff;border-radius:14px;padding:22px;width:100%;max-width:420px;font-size:14px;color:#1a1a1a">'+
+    '<div style="font-weight:700;font-size:17px;margin-bottom:4px">'+wt('web.contact.title')+'</div>'+
+    '<p style="color:#5a5855;margin:0 0 12px;font-size:13px">'+wt('web.contact.sub')+'</p>'+
+    '<select id="ctType" style="width:100%;padding:9px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px;font-size:13px"><option value="idea">'+wt('web.contact.opt_idea')+'</option><option value="duda">'+wt('web.contact.opt_duda')+'</option><option value="fallo">'+wt('web.contact.opt_fallo')+'</option><option value="otro">'+wt('web.contact.opt_otro')+'</option></select>'+
+    '<textarea id="ctMsg" placeholder="'+wt('web.contact.placeholder')+'" style="width:100%;box-sizing:border-box;border:1px solid #ddd;border-radius:8px;padding:9px;font-size:13px;resize:vertical;min-height:90px;margin-bottom:8px"></textarea>'+
+    '<input id="ctEmail" type="email" placeholder="'+wt('web.contact.email_ph')+'" style="width:100%;box-sizing:border-box;border:1px solid #ddd;border-radius:8px;padding:9px;font-size:13px;margin-bottom:10px">'+
+    '<div id="ctMsgErr" style="color:#C0392B;font-size:12px;margin-bottom:8px;display:none">'+wt('web.contact.err')+'</div>'+
+    '<div style="display:flex;gap:8px"><button type="button" onclick="sendContactWeb()" style="flex:1;padding:11px;border:none;border-radius:8px;background:#E8186E;color:#fff;font-weight:600;cursor:pointer">'+wt('web.contact.send')+'</button>'+
+    '<button type="button" onclick="document.getElementById(\'contactModal\').remove()" style="padding:11px 14px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;color:#5a5855">'+wt('web.contact.cancel')+'</button></div></div>';
+  m.addEventListener('click',function(e){if(e.target===m)m.remove();});
+  document.body.appendChild(m);
+}
+function sendContactWeb(){
+  const msg=(document.getElementById('ctMsg').value||'').trim();
+  if(!msg){document.getElementById('ctMsgErr').style.display='block';return;}
+  const type=document.getElementById('ctType').value;const email=(document.getElementById('ctEmail').value||'').trim();
+  fetch('/api/feedback',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},(typeof authHeaders==='function'?authHeaders():{})),body:JSON.stringify({kind:'contact',contact_type:type,comment:msg,contact_email:email||null})}).catch(function(){});
+  const m=document.getElementById('contactModal');if(m)m.querySelector('div').innerHTML='<div style="font-weight:700;font-size:17px">'+wt('web.contact.thanks')+'</div><p style="color:#5a5855;margin:8px 0 0;font-size:13px">'+wt('web.contact.received')+'</p>';
+  setTimeout(function(){const x=document.getElementById('contactModal');if(x)x.remove();},1800);
+}
+
+/* ── FASE 20.1-UX: pagina Mi cuenta (perfil, plan/uso, RGPD, zona de peligro) ── */
+function authHeaders(extra) {
+  const t = localStorage.getItem('h2ai_token');
+  return Object.assign(t ? {'Authorization': 'Bearer ' + t} : {}, extra || {});
+}
+async function loadCuenta() {
+  const el = document.getElementById('cuenta-body');
+  if (!localStorage.getItem('h2ai_token')) { navTo('login'); return; }
+  try {
+    const r = await fetch('/auth/me', {headers: authHeaders()});
+    if (!r.ok) { localStorage.removeItem('h2ai_token'); navTo('login'); return; }
+    const d = await r.json();
+    const u = d.user, us = d.usage || {};
+    const verif = u.email_verified
+      ? '<span style="color:#16A34A">'+wt('web.account.verified')+'</span>'
+      : wt('web.account.unverified')+' · <a href="#" onclick="resendVerif()" style="color:#E8186E">'+wt('web.account.resend_link')+'</a>';
+    el.innerHTML = `
+      <div class="acct-card">
+        <h3>${wt('web.account.profile')}</h3>
+        <p>${u.email}<br>${wt('web.account.email_label')} ${verif}</p>
+        <p style="margin:10px 0 4px">${wt('web.account.name_label')} <span style="color:#888">${wt('web.account.name_hint')}</span>:</p>
+        <div style="display:flex;gap:8px">
+          <input id="acctName" value="${(u.name||'').replace(/"/g,'&quot;')}" maxlength="60" placeholder="${wt('web.auth.name_ph')}" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+          <button onclick="saveName()" class="acct-btn acct-btn-pink">${wt('web.account.save')}</button>
+        </div>
+        <div id="acctNameMsg" style="font-size:12px;margin-top:5px"></div>
+      </div>
+      <div class="acct-card">
+        <h3>${wt('web.account.plan_usage')}</h3>
+        <p>${wt('web.account.plan')} <b>${u.plan}</b> · ${wt('web.account.month_convos')} <b>${us.debates ?? 0}</b>${u.plan === 'free' ? wt('web.account.of_10') : ''}</p>
+      </div>
+      <div class="acct-card">
+        <h3>${wt('web.account.rgpd')}</h3>
+        <p><button onclick="exportMyData()" class="acct-btn acct-btn-pink">${wt('web.account.download')}</button></p>
+      </div>
+      <div class="acct-card">
+        <h3>${wt('web.account.session')}</h3>
+        <p><button id="logoutBtn" onclick="doLogoutCuenta()" class="acct-btn acct-logout">${wt('web.account.logout')}</button></p>
+      </div>
+      <div id="zona-peligro" class="acct-danger">
+        <h3>${wt('web.account.danger')}</h3>
+        <p style="margin-bottom:12px">${wt('web.account.danger_text')}</p>
+        <button onclick="deleteMyAccount()" class="acct-btn">${wt('web.account.delete')}</button>
+      </div>`;
+  } catch (e) { el.innerHTML = '<p>'+wt('web.account.load_err')+'</p>'; }
+}
+async function saveName() {
+  const v = (document.getElementById('acctName').value || '').trim();
+  const msg = document.getElementById('acctNameMsg');
+  if (msg) { msg.style.color = '#888'; msg.textContent = wt('web.account.saving'); }
+  try {
+    const r = await fetch('/api/me/profile', {method: 'POST', headers: {...authHeaders(), 'Content-Type': 'application/json'}, body: JSON.stringify({name: v})});
+    if (!r.ok) { if (msg) { msg.style.color = '#E8186E'; msg.textContent = wt('web.account.save_err'); } return; }
+    const d = await r.json();
+    if (msg) { msg.style.color = '#16A34A'; msg.textContent = wt('web.account.saved_pre') + (d.name || wt('web.account.default_name')) + wt('web.account.saved_post'); }
+  } catch (e) { if (msg) { msg.style.color = '#E8186E'; msg.textContent = wt('web.common.conn_err'); } }
+}
+async function resendVerif() {
+  try {
+    const r = await fetch('/auth/resend-verification', {method: 'POST', headers: authHeaders()});
+    const d = await r.json();
+    alert(d.message || d.detail || wt('web.account.done'));
+  } catch (e) { alert(wt('web.common.conn_err')); }
+}
+function doLogoutCuenta() {
+  fetch('/auth/logout', {method: 'POST', headers: authHeaders()}).finally(() => {
+    localStorage.removeItem('h2ai_token');
+    window.location = '/web';
+  });
+}
+async function exportMyData() {
+  try {
+    const r = await fetch('/api/account/export', {headers: authHeaders()});
+    if (!r.ok) { alert(wt('web.account.export_err')); return; }
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'h2aichat_mis_datos.json'; a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (e) { alert(wt('web.common.conn_err')); }
+}
+async function deleteMyAccount() {
+  const pw = prompt(wt('web.account.del_confirm1'));
+  if (!pw) return;
+  if (!confirm(wt('web.account.del_confirm2'))) return;
+  try {
+    const r = await fetch('/api/account', {method: 'DELETE', headers: authHeaders({'Content-Type': 'application/json'}), body: JSON.stringify({password: pw})});
+    const data = await r.json();
+    if (r.ok && data.success) {
+      localStorage.removeItem('h2ai_token');
+      alert(wt('web.account.deleted'));
+      window.location = '/web';
+    } else alert(data.detail || wt('web.account.del_err'));
+  } catch (e) { alert(wt('web.common.conn_err')); }
+}
+
+function toggleConv(el) { el.classList.toggle('open'); }
+
+/* FASE 33.1 T5: la galería se renderiza en el SERVIDOR (i18n.render_gallery, datos por idioma).
+   Antes era client-side desde el array CONVERSATIONS; ahora la fuente de verdad es WEB_GALLERY en i18n.py. */
+</script>
+</body>
+</html>

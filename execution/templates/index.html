@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- FASE 36.3: la app de chat (tras login) no es contenido indexable; fuera de Google (se siguen enlaces) -->
+<meta name="robots" content="noindex,follow">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<meta name="ai-generated" content="true">
+<title>H2AI Chat</title>
+<style>
+:root{
+  --pink-bg:#FBEAF0; --pink-accent:#D4537E; --pink-text:#993556;
+  --blue-bg:#E6F1FB; --green-on:#639922; --gray-off:#D3D1C7;
+  --bg:#FFFFFF; --bg2:#F5F5F5; --bg3:#EEEEEE;
+  --text:#333; --text2:#777; --border:#E0E0E0;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+/* 100dvh (no 100vh): en movil la barra de URL del navegador hace que 100vh sea mas alto
+   que el area visible y la barra inferior del chat queda fuera de pantalla. dvh se ajusta. */
+body{font-family:system-ui,-apple-system,sans-serif;background:#f0f0f0;margin:0;height:100vh;height:100dvh;overflow:hidden}
+.app{width:100vw;height:100vh;height:100dvh;display:flex;background:var(--bg);border:0.5px solid var(--border);border-radius:0;overflow:hidden}
+.hamburger{display:none;background:none;border:none;font-size:20px;cursor:pointer;padding:8px 12px;color:var(--text)}
+.sidebar{width:210px;min-width:210px;background:#FAFAFA;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-header{padding:14px 12px 8px;font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase}
+.search-box{margin:0 10px 10px;display:flex;align-items:center;background:var(--bg);border-radius:16px;padding:6px 10px;gap:6px;border:1px solid var(--border)}
+.search-box svg{width:14px;height:14px;color:var(--text2)}
+.search-box input{border:none;outline:none;font-size:11px;width:100%;background:transparent;color:var(--text)}
+.search-box input::placeholder{color:#bbb}
+.section-label{font-size:9px;font-weight:700;color:var(--text2);letter-spacing:1px;padding:10px 12px 4px;display:flex;align-items:center;justify-content:space-between;text-transform:uppercase;cursor:pointer;user-select:none}
+.section-label .count{background:#E8E8E8;color:var(--text2);font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600}
+.section-label .arrow{font-size:8px;transition:transform .2s}
+.section-label .arrow.up{transform:rotate(180deg)}
+.agent-list{overflow-y:auto;padding:0 8px}
+.agent-list.collapsed{display:none}
+#modList{flex:0 0 auto;max-height:50px}
+#agentList{flex:1}
+.agent-row{display:flex;align-items:center;padding:7px 10px;border-radius:8px;cursor:pointer;gap:8px;transition:.15s;margin-bottom:1px}
+.agent-row:hover{background:var(--bg2)}
+.agent-row .avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.agent-row .avatar.moderator{background:var(--pink-bg);color:var(--pink-text);border:1.5px solid var(--pink-accent)}
+.agent-row .avatar.agent{background:var(--bg);color:var(--text);border:1px solid var(--border)}
+/* FASE 38.3: avatar con logo real del modelo dentro de un aro grueso con el color del agente (o inicial si no hay logo) */
+.ai-avatar{border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;box-sizing:border-box;font-weight:700;line-height:1}
+.ai-avatar.logo{background:#fff}
+.ai-avatar img{width:62%;height:62%;object-fit:contain;display:block}
+.ai-avatar svg{width:62%;height:62%;display:block}
+.agent-row .info{flex:1;min-width:0}
+.agent-row .name{font-size:12px;font-weight:600;color:var(--text)}
+.agent-row .role{font-size:10px;color:var(--text2)}
+.agent-row .status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.agent-row .status-dot.online{background:var(--green-on)}
+.agent-row .status-dot.waiting{background:var(--gray-off)}
+.agent-row .status-dot.inactive{background:#e74c3c}
+.sidebar-footer{border-top:1px solid var(--border);padding:10px 12px;font-size:10px}
+.sidebar-footer .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.sidebar-footer .row .key{color:var(--text2)}
+.sidebar-footer .row .val{color:var(--text);font-weight:600}
+.sidebar-footer .pill{background:var(--pink-bg);color:var(--pink-text);padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600}
+.main-area{flex:1;display:flex;flex-direction:column;min-width:0 /* permite que el flex child encoja: evita overflow horizontal */}
+.tabs{display:flex;border-bottom:1px solid var(--border);padding:0 16px}
+.tab{padding:12px 18px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:.15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--pink-accent);border-bottom-color:var(--pink-accent)}
+.chat-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)}
+.chat-header-left{display:flex;align-items:center;gap:8px}
+.chat-header-left h3{font-size:13px;font-weight:700;color:var(--text)}
+.pill{font-size:10px;padding:2px 8px;border-radius:8px;font-weight:600}
+#shareToggleBtn{font-size:10px}  /* mismo tamano que los pills de al lado */
+.pill.agents{background:#E6F1FB;color:#2B6EB0}
+.pill.msgs{background:#E8F5E9;color:#2E7D32}
+.chat-header-right{font-size:10px;color:var(--text2)}
+/* FASE 30: tema visual de PRE-PROD (azul suave) — solo se activa en staging */
+body.staging-env .chat-header{background:#E8F0FE;border-bottom-color:#bcd3f5}
+body.staging-env .sidebar{background:#E8F0FE}
+.preprod-pill{display:none;font:700 10px system-ui,sans-serif;letter-spacing:.5px;color:#1A5FB4;background:#D6E4FB;border:1px solid #bcd3f5;border-radius:6px;padding:2px 7px;white-space:nowrap}
+body.staging-env .preprod-pill{display:inline-block}
+/* FASE 20.1-UX2 (PO): estilo WhatsApp — fondo calido suave, burbujas neutras que "flotan".
+   Ajuste PO: burbuja partida en cabecera con el color del agente + cuerpo blanco. */
+.messages-area{flex:1;min-height:0;overflow-y:auto;padding:14px;background:#F4F1EC}
+.bubble.wa{background:#fff;box-shadow:0 1px 1px rgba(0,0,0,.08);border:0.5px solid rgba(0,0,0,.05);padding:0;overflow:hidden}
+.msg-row.center{margin-top:16px;margin-bottom:16px} /* aire entre el moderador y las IAs */
+.bubble-head{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:6px 12px}
+.bubble-head .bh-arrow,.bubble-head .bh-to{color:var(--text2);font-weight:500}
+.bubble-body{padding:7px 12px 2px}
+.bubble-time{font-size:10px;color:var(--text2);text-align:right;padding:0 12px 6px}
+.msg-row{display:flex;flex-direction:column;margin-bottom:8px;max-width:82%}
+.msg-row.left{align-items:flex-start}
+.msg-row.right{align-items:flex-end;margin-left:auto}
+.msg-row.center{align-items:center;margin:0 auto;max-width:74%}
+/* (CSS de .msg-header eliminado: restos del diseno viejo de burbujas, sustituido por .bubble-head WhatsApp) */
+.bubble{padding:8px 12px;font-size:12px;line-height:1.5;color:var(--text);word-break:break-word}
+.bubble.left{border-radius:10px 10px 10px 3px}
+.bubble.right{border-radius:10px 10px 3px 10px}
+.bubble.center{background:var(--pink-bg);border:1.5px solid var(--pink-accent);border-radius:10px;text-align:center}
+.bubble .highlight{color:var(--pink-accent);font-weight:700}
+.msg-time{font-size:9px;color:var(--text2);margin-top:2px}
+.msg-row.right .msg-time{text-align:right}
+.msg-row.center .msg-time{text-align:center}
+.separator{text-align:center;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin:12px 0}
+/* Panel de espera mientras las IAs razonan (FASE 25) — desaparece al llegar la 1ª respuesta */
+.wait-panel{background:var(--pink-bg);border:1px solid var(--pink-accent);border-radius:14px;padding:16px 18px;margin:14px 8px;max-width:620px}
+.wait-panel .wait-title{font-size:15px;font-weight:700;color:var(--pink-text);margin-bottom:6px}
+.wait-panel .wait-est{font-size:13px;color:var(--text);line-height:1.5}
+.wait-panel .wait-tip{font-size:12px;color:var(--pink-text);background:#fff;border-radius:8px;padding:7px 10px;margin:10px 0;transition:opacity .3s}
+.wait-panel .wait-warn{font-size:12px;color:var(--text2);line-height:1.45;border-top:1px solid var(--pink-accent);padding-top:9px;margin-top:9px}
+.wait-dots::after{content:'';animation:waitdots 1.4s steps(4,end) infinite}
+@keyframes waitdots{0%{content:''}25%{content:'·'}50%{content:'··'}75%{content:'···'}}
+/* coletilla legal bajo la pregunta del moderador (PO 2026-06-13): tira sutil, sin burbuja */
+.ai-disclaimer{max-width:80%;margin:2px auto 14px;padding:6px 14px;font-size:11px;font-style:italic;color:#998;text-align:center;line-height:1.5}
+/* FASE 35 (AI Act Art. 50): aviso PROMINENTE de contenido generado por IA, visible desde el primer momento */
+.ai-notice{background:#FFF3D6;border-bottom:1px solid #EBCF8A;color:#6B4E00;font-size:12px;line-height:1.5;padding:9px 18px;text-align:center}
+.ai-notice strong{font-weight:700}
+/* tooltips ARRIBA del icono (PO 2026-06-13): el cursor no tapa la explicacion */
+[data-tooltip]{position:relative}
+[data-tooltip]:hover::after{content:attr(data-tooltip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#2a2a2a;color:#fff;font-size:11px;font-weight:500;white-space:nowrap;padding:5px 9px;border-radius:6px;z-index:1001;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+[data-tooltip]:hover::before{content:'';position:absolute;bottom:calc(100% + 3px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#2a2a2a;z-index:1001;pointer-events:none}
+.pause-btn{display:none;align-items:center;justify-content:center;width:30px;height:30px;border:none;background:transparent;color:#888;cursor:pointer;border-radius:50%;transition:color .2s;flex-shrink:0}
+.pause-btn:hover{color:var(--pink-accent);background:rgba(232,24,110,.08)}
+body.orchestrating .pause-btn{display:flex}
+/* El media query desktop (min-width:1200px) vive al FINAL del <style> para ganar en
+   cascada a todas las reglas base (antes estaba aqui y .bottom-bar/.msg-input lo anulaban). */
+.bottom-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid var(--border);background:var(--bg)}
+.turn-indicator{display:flex;align-items:center;gap:6px;background:#F0F0F0;border-radius:12px;padding:5px 10px;font-size:10px;color:var(--text);white-space:nowrap}
+.turn-indicator .dot{width:7px;height:7px;border-radius:50%;background:var(--green-on)}
+.msg-input{flex:1;background:var(--bg3);border:none;border-radius:18px;padding:8px 14px;font-size:11px;outline:none;color:var(--text)}
+.msg-input::placeholder{color:#bbb}
+.send-btn{width:30px;height:30px;border-radius:50%;background:var(--pink-accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.send-btn svg{width:14px;height:14px;color:#fff}
+#stopBtn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:none;background:transparent;color:#bbb;cursor:pointer;border-radius:50%;transition:color .2s;flex-shrink:0}
+#stopBtn:hover{color:#e74c3c;background:rgba(231,76,60,.08)}
+body.orchestrating .bottom-bar{border-color:#e74c3c;box-shadow:0 0 12px rgba(231,76,60,.3)}
+body.orchestrating #stopBtn{color:#e74c3c;animation:pulse-stop 1.2s infinite}
+@keyframes pulse-stop{0%,100%{opacity:1}50%{opacity:.4}}
+body.orchestrating #msgInput{background:#fafafa;color:#999}
+.panel{display:none;flex:1;flex-direction:column;overflow:hidden}
+.panel.active{display:flex}
+.dash-card{background:var(--bg2);border-radius:8px;padding:12px 14px}
+.dash-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px /* 4 cols equitativas en desktop; max-width en cada card evita cards gigantes */}
+.dash-stats .dash-card{max-width:220px;margin:0 auto;width:100%}
+@media(max-width:768px){.dash-stats{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}}
+#dashboardPanel.active{overflow-y:auto}
+.dash-bottom{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.turn-seq{overflow-x:auto;overflow-y:hidden;white-space:nowrap;display:flex;flex-wrap:nowrap;max-width:100%;scrollbar-width:thin;scrollbar-color:#ddd transparent}
+.turn-seq::-webkit-scrollbar{height:4px}
+.turn-seq::-webkit-scrollbar-thumb{background:#ccc;border-radius:2px}
+.thread-row{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:400;gap:6px;border-left:2px solid transparent;transition:background .15s;color:var(--text)}
+.thread-row:hover{background:#f8f9fa}
+.thread-row.active{background:#f0f0f0;font-weight:600;border-left-color:var(--pink-accent)}
+.thread-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thread-count{font-size:10px;color:var(--text2);flex-shrink:0}
+.thread-dots{cursor:pointer;color:var(--text2);padding:2px;flex-shrink:0}
+.sidebar-logo{display:flex;align-items:center;padding:14px 10px 10px;gap:8px;border-bottom:1px solid var(--border)}
+.logo-icon{font-size:20px;color:var(--pink-accent);line-height:1}
+.sidebar-user{font-size:12px;font-weight:600;color:var(--text);flex:1}
+.collapse-btn{background:none;border:none;font-size:12px;color:var(--text2);cursor:pointer;padding:2px 4px;transition:transform .2s}
+.collapse-btn:hover{color:var(--text)}
+.sidebar.collapsed{min-width:48px;width:48px}
+.sidebar.collapsed .sidebar-user,.sidebar.collapsed .search-box,.sidebar.collapsed .section-label,.sidebar.collapsed .agent-row .info,.sidebar.collapsed .agent-row .status-dot,.sidebar.collapsed .sidebar-footer .row,.sidebar.collapsed .sidebar-header{display:none}
+.sidebar.collapsed .sidebar-logo{flex-direction:column;justify-content:center;align-items:center;gap:2px;padding:10px 0 6px}
+.sidebar.collapsed .new-thread-text{display:none}
+.sidebar.collapsed .thread-row{gap:0;padding:6px 0!important}
+.sidebar.collapsed .thread-name,.sidebar.collapsed .thread-count,.sidebar.collapsed .thread-dots{display:none}
+.sidebar.collapsed .thread-circle{display:flex!important}
+.sidebar.collapsed .new-thread-wrap{display:flex;justify-content:center;padding:6px 0!important}
+.sidebar.collapsed .agent-row{justify-content:center;padding:7px 0}
+@media(max-width:768px){
+  .sidebar{min-width:48px;width:48px}
+  .sidebar .sidebar-user,.sidebar .search-box,.sidebar .section-label,.sidebar .agent-row .info,.sidebar .agent-row .status-dot,.sidebar .sidebar-footer .row,.sidebar .sidebar-header{display:none}
+  .sidebar .sidebar-logo{flex-direction:column;justify-content:center;align-items:center;gap:2px;padding:10px 0 6px}
+  .sidebar .new-thread-text{display:none}
+  .sidebar .thread-row{gap:0;padding:6px 0!important}
+  .sidebar .thread-name,.sidebar .thread-count,.sidebar .thread-dots{display:none}
+  .sidebar .thread-circle{display:flex!important}
+  .sidebar .new-thread-wrap{display:flex;justify-content:center;padding:6px 0!important}
+  .sidebar .agent-row{justify-content:center;padding:7px 0}
+  .sidebar.open{min-width:210px;width:210px;position:fixed;left:0;top:0;bottom:0;z-index:10}
+  .sidebar.open .sidebar-user,.sidebar.open .search-box,.sidebar.open .section-label,.sidebar.open .agent-row .info,.sidebar.open .agent-row .status-dot,.sidebar.open .sidebar-footer .row,.sidebar.open .sidebar-header{display:flex}
+  .sidebar.open .sidebar-logo{flex-direction:row;justify-content:flex-start;align-items:center;gap:8px;padding:14px 10px 10px}
+  .sidebar.open .new-thread-text{display:inline}
+  .sidebar.open .thread-row{padding:6px 10px!important}
+  .sidebar.open .thread-name,.sidebar.open .thread-count,.sidebar.open .thread-dots{display:block}
+  .sidebar.open .thread-circle{display:none!important}
+  .sidebar.open .new-thread-wrap{padding:6px 10px!important}
+  .sidebar.open .agent-row{padding:7px 10px;justify-content:flex-start}
+  .sidebar.open .chat-header-right{display:block}
+  .sidebar.open .pill.agents{display:inline}
+  .hamburger{display:block}
+  .chat-header-right{display:none}
+  .pill.agents{display:none}
+  .dash-recent .recent-list{max-height:220px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#ddd transparent}
+.dash-recent .recent-list::-webkit-scrollbar{width:4px}
+.dash-recent .recent-list::-webkit-scrollbar-thumb{background:#ccc;border-radius:2px}
+  .chat-header{padding:8px 10px}
+  .bottom-bar{padding:6px 8px}
+}
+.bubble ul,.bubble ol{padding-left:18px;margin:4px 0}
+.bubble li{margin-bottom:2px}
+.bubble table{border-collapse:collapse;margin:6px 0;font-size:11px}
+.bubble th,.bubble td{border:1px solid #ddd;padding:4px 8px;text-align:left}
+.bubble th{background:#f5f5f5;font-weight:600}
+.bubble code{background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:11px}
+.bubble pre{background:#f5f5f5;padding:8px 12px;border-radius:6px;overflow-x:auto;font-size:11px;line-height:1.4}
+.bubble blockquote{border-left:3px solid #ddd;margin:6px 0;padding:2px 10px;color:#888}
+.bubble hr{border:none;border-top:1px solid #ddd;margin:8px 0}
+.bubble p{margin:0 0 4px}
+.bubble p:last-child{margin-bottom:0}
+.profile-pick{display:flex;gap:8px;margin-bottom:10px}
+.profile-btn{flex:1;padding:10px 12px;border:2px solid var(--border);border-radius:10px;background:var(--bg);cursor:pointer;text-align:left;transition:.15s;font-size:11px;color:var(--text)}
+.profile-btn:hover{border-color:var(--pink-accent);background:var(--pink-bg)}
+.profile-btn.active{border-color:var(--pink-accent);background:var(--pink-bg);box-shadow:0 0 0 1px var(--pink-accent)}
+.profile-btn .name{font-weight:700;display:block;margin-bottom:2px}
+.profile-btn .detail{font-size:9px;color:var(--text2)}
+/* ── Desktop (PO 2026-06-12/13): chat centrado ~980px + marcos a juego. Al final del
+   stylesheet para ganar en cascada a las reglas base de .bottom-bar/.msg-input/etc. ── */
+@media (min-width:1200px){
+  #chatMessages{padding-left:max(20px,calc((100% - 980px)/2));padding-right:max(20px,calc((100% - 980px)/2))}
+  .msg-row{margin-bottom:12px;max-width:65%} /* proporcion WhatsApp */
+  .msg-row.center{margin-top:24px;margin-bottom:24px}
+  .bubble{font-size:15px}
+  .bubble-head{font-size:12px;padding:7px 16px}
+  .bubble-body{padding:9px 16px 2px}
+  .bubble-time{font-size:11px;padding:0 16px 8px}
+  .separator{font-size:10px;margin:16px 0}
+  .sidebar{width:260px;min-width:260px}
+  .sidebar.collapsed{width:56px;min-width:56px}
+  .sidebar-header{font-size:12px}
+  .section-label{font-size:11px;padding:12px 12px 5px}
+  .section-label .arrow{font-size:11px}
+  .section-label .count{font-size:10px;padding:2px 7px}
+  .thread-row{font-size:17px;padding:10px 12px}
+  .thread-name{font-weight:600}
+  .thread-count{font-size:14px}
+  .thread-circle{width:30px!important;height:30px!important;font-size:11px!important}
+  .agent-row .avatar{width:34px;height:34px;font-size:14px}
+  .agent-row .name{font-size:14px}
+  .agent-row .role{font-size:12px}
+  .sidebar-user{font-size:20px;font-weight:700} /* -25% (PO) */
+  .sidebar-logo .logo-icon{width:44px!important;height:44px!important;font-size:22px!important}
+  .sidebar-footer{font-size:14px}
+  .sidebar-footer .pill{font-size:12px}
+  .new-thread-wrap button{font-size:12px!important;padding:10px 0!important}
+  #searchInput{font-size:14px}
+  .tab{font-size:17px;padding:16px 24px}
+  .chat-header-left h3{font-size:19px}
+  .pill{font-size:14px;padding:3px 10px}
+  #shareToggleBtn{font-size:14px}
+  .chat-header-right{font-size:16px}
+  #langSelect{font-size:14px!important;padding:5px 8px!important}
+  #settingsBtn svg,#exportBtn svg{width:22px;height:22px}
+  /* barra de escribir -25% (PO) */
+  .bottom-bar{padding:16px 21px;gap:10px}
+  .msg-input{font-size:18px;padding:15px 21px;border-radius:26px}
+  .turn-indicator{font-size:14px;padding:10px 15px}
+  .turn-indicator .dot{width:8px;height:8px}
+  .send-btn{width:42px;height:42px}
+  .send-btn svg{width:18px;height:18px}
+}
+</style>
+</head>
+<body>
+<!-- FASE 30: marca de PRE-PROD (tema azul suave). Se activa solo en staging.* o si H2AI_STAGING. Cero impacto en PROD. -->
+<script>if(/^staging\./.test(location.hostname)||window.H2AI_STAGING){document.body.classList.add('staging-env');document.title='[PRE-PROD] '+document.title;}</script>
+<div class="app">
+  <div class="sidebar" id="sidebar">
+     <div class="sidebar-logo">
+       <a href="/web" style="text-decoration:none;color:inherit;display:contents"><img src="/static/logo.png" alt="H2AI Chat" class="logo-icon" style="width:28px;height:28px;background:none;object-fit:contain;border-radius:7px"></a>
+      <div class="sidebar-user" id="sidebarUser">Miguel</div>
+      <!-- FASE 20.1-UX (PO): boton de logout retirado — cerrar sesion vive en el menu del nombre -->
+      <button class="collapse-btn" onclick="toggleSidebarCollapse()" title="Colapsar panel">
+        <svg class="icon-close" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg>
+        <svg class="icon-open" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+      </button>
+    </div>
+    <div class="new-thread-wrap" style="padding:6px 10px">
+      <button onclick="newThread()" style="width:100%;padding:7px 0;border:1px dashed var(--border);border-radius:8px;background:var(--bg);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer">+ <span class="new-thread-text">Nueva conversación</span></button>
+    </div>
+    <div class="sidebar-header" id="sidebarTitle">CONVERSACIONES</div>
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" placeholder="Buscar conversacion..." id="searchInput">
+    </div>
+    <div class="agent-list" id="threadList" style="flex:1"></div>
+    <div class="section-label" onclick="toggleSection('agentList',this)"><span id="secAgentsLabel">AGENTES</span><span class="arrow up">▼</span> <span class="count" id="agentCount" onclick="event.stopPropagation();openConfig()" title="Configurar IAs" style="cursor:pointer">0</span></div>
+    <div class="agent-list" id="agentList"></div>
+    <div class="section-label" onclick="toggleSection('modList',this)"><span id="secModLabel">MODERADOR</span><span class="arrow down">▼</span></div>
+    <div class="agent-list collapsed" id="modList"></div>
+    <div class="sidebar-footer">
+      <div class="row"><span class="key" id="footerTurnLabel">Turno</span><span class="pill" id="footerTurn">—</span></div>
+      <div class="row"><span class="key" id="footerQueueLabel">Cola</span><span class="val" id="footerQueue">0</span></div>
+      <div class="row"><span class="key" id="footerStateLabel">Estado</span><span class="val" id="footerState">—</span></div>
+      <div class="row" style="margin-top:8px"><a href="#" id="feedbackLink" onclick="openContact();return false;" style="color:var(--pink-accent);font-weight:600;text-decoration:none">💬 Opinión / Contacto</a></div>
+    </div>
+  </div>
+  <div class="main-area">
+    <div style="display:flex;align-items:center">
+      <div class="tabs" style="flex:1">
+      <div class="tab active" data-panel="chat" id="tabChat">Chat</div>
+      <div class="tab" data-panel="dashboard" id="tabDashboard">Dashboard</div>
+    </div>
+    <!-- UX3-1: idioma + engranaje = ajustes GENERALES, viven en la fila superior (no en la barra de la conversacion) -->
+    <div style="display:flex;align-items:center;gap:4px;padding-right:8px">
+      <select id="langSelect" onchange="switchLang(this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:3px 6px;font-size:11px;color:var(--text)"></select>
+      <button id="settingsBtn" onclick="openConfig()" title="Configuracion" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:4px;border-radius:6px">
+        <svg width="16" height="16" viewBox="0 0 512 512" fill="currentColor"><path d="M495.9 166.6c3.2 8.7 .5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6 .3-24.5-6.8-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.7 191.2c-6.9-6.2-9.6-15.9-6.4-24.6 4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2 5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8 8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336c44.2 0 80-35.8 80-80s-35.8-80-80-80-80 35.8-80 80 35.8 80 80 80z"/></svg>
+      </button>
+    </div>
+    </div>
+    <div class="panel active" id="chatPanel">
+      <div class="chat-header">
+        <div class="chat-header-left">
+          <span class="preprod-pill">PRE-PROD</span>
+          <h3 id="chatTitle">Conversacion completa</h3>
+          <span class="pill agents" id="chatAgentCount">0 agentes</span>
+          <span class="pill msgs" id="chatMsgCount">0 mensajes</span>
+          <button id="shareToggleBtn" onclick="openShareMenu(event)" style="display:none;background:none;border:1px solid var(--border);border-radius:8px;padding:3px 9px;cursor:pointer;color:var(--text2)">↗ <span id="shareBtnLabel">Compartir</span></button>
+        </div>
+        <div class="chat-header-right" id="chatTimeRange"></div>
+        <button id="exportBtn" onclick="openExportMenu(event)" title="Exportar conversacion" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:4px;border-radius:6px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+      </div>
+      <div class="messages-area" id="chatMessages"></div>
+      <div class="bottom-bar">
+        <div class="turn-indicator"><span class="dot"></span><span id="bottomTurn">Turno: —</span></div>
+        <input class="msg-input" placeholder="Escribe un mensaje..." id="msgInput">
+        <button class="pause-btn" id="pauseBtn" onclick="pauseOrchestrate()" data-tooltip="Pausar para intervenir">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg>
+        </button>
+        <button class="stop-btn" id="stopBtn" onclick="stopOrchestrate()" data-tooltip="Parar conversación">
+          <svg width="14" height="14" viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="1" fill="currentColor"/></svg>
+        </button>
+        <button class="send-btn" id="sendBtn" onclick="sendMsg()" data-tooltip="Enviar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="panel" id="dashboardPanel">
+      <div class="messages-area" id="dashboard" style="padding:18px;overflow-y:auto;flex:1;min-height:0"></div>
+    </div>
+  </div>
+</div>
+<script src="/static/marked.min.js"></script>
+<script>
+const PALETTE=[
+  {fg:'#333',bg:'#FFF',border:'1.5px solid #999'},           // 0: moderador (blanco + borde gris)
+  {fg:'#6B4E8A',bg:'#D6C7E8',border:'1px solid #6B4E8A'},   // 1: Lavender Mist
+  {fg:'#2D6A4F',bg:'#C8E6D9',border:'1px solid #2D6A4F'},   // 2: Mint Cream
+  {fg:'#3A6B99',bg:'#BDD9ED',border:'1px solid #3A6B99'},   // 3: Powder Blue
+  {fg:'#C47A3A',bg:'#FFD9C0',border:'1px solid #C47A3A'},   // 4: Peach Fuzz
+  {fg:'#8B7D2C',bg:'#F9F0B8',border:'1px solid #8B7D2C'},   // 5: Pale Lemon
+  {fg:'#6B5E6E',bg:'#D4CDD5',border:'1px solid #6B5E6E'},   // 6: Grayish Mauve
+  {fg:'#B84C6E',bg:'#F4D4E0',border:'1px solid #B84C6E'},   // 7: Blush Pink
+];
+let participants=[],allMessages=[],nonModIdx=0,currentThread='general',sharedThreads=[];
+let senderColors={};
+let orchestrating=false; let orchPollTimer=null;  // FASE 29: debate en curso + sondeo de estado
+let translations={};
+let currentLang=localStorage.lang||'es';
+
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+// FASE 31: ¿es este remitente el moderador? Su id es el email del usuario (MY_MOD_ID);
+// se acepta también el 'miguel' viejo para conversaciones anteriores al cambio.
+function isModer(s){return !!s&&(s===window.MY_MOD_ID||s==='miguel');}
+/* Traduce el rol del participante (creativo/estratega/analista/moderador/importado); desconocido -> tal cual */
+function roleLabel(role,isMod){
+  const m={creativo:'role.creativo',estratega:'role.estratega',analista:'role.analista',moderador:'msg.role_moderator',importado:'role.importado'};
+  const r=(role||'').trim().toLowerCase();
+  if(m[r])return cap(t(m[r]));
+  if(isMod)return cap(t('msg.role_moderator'));
+  return cap(role||t('msg.role_agent'));
+}
+
+/* ── FASE 20.2f: sesion JWT ── */
+const H2AI_TOKEN=localStorage.getItem('h2ai_token');
+if(H2AI_TOKEN){
+  const _origFetch=window.fetch.bind(window);
+  window.fetch=(url,opts={})=>{
+    opts.headers=Object.assign({},opts.headers||{},{Authorization:'Bearer '+H2AI_TOKEN});
+    return _origFetch(url,opts);
+  };
+}
+async function initSession(){
+  if(!H2AI_TOKEN)return;
+  try{
+    const r=await fetch('/auth/me');
+    if(r.status===401){localStorage.removeItem('h2ai_token');window.location='/web';return;}
+    const data=await r.json();
+    if(data.user){
+      window.MY_NAME=cap(data.user.name||data.user.email.split('@')[0]);  // nombre con el que aparece el moderador (no "Miguel" fijo)
+      window.MY_MOD_ID=(data.user.email||'').toLowerCase();  // FASE 31: id del moderador = email del usuario
+      const el=document.getElementById('sidebarUser');
+      if(el)el.textContent=window.MY_NAME;
+      if(data.user.user_id!==0){
+        if(!data.user.email_verified)showVerifyBanner();
+        if(el){el.style.cursor='pointer';el.title='Mi cuenta';el.onclick=toggleAccountMenu;}
+      }
+      // FASE 27: el engranaje lo ven TODOS los usuarios. Admin -> config de la app (global);
+      // usuario normal -> su propia config, acotada a su plan.
+      window._isAdmin = !!data.user.is_admin;
+    }
+  }catch(e){}
+}
+initSession();
+/* ── FASE 20.1-UX (decision PO): en el chat solo cosas del chat. Lo administrativo
+   (datos, plan, RGPD, eliminar cuenta) vive en /web#cuenta. ── */
+function toggleAccountMenu(){
+  let m=document.getElementById('accountMenu');
+  if(m){m.remove();return;}
+  m=document.createElement('div');
+  m.id='accountMenu';
+  m.style.cssText='position:fixed;top:46px;left:12px;z-index:1000;background:var(--panel,#fff);border:1px solid var(--border,#ddd);border-radius:10px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:2px;min-width:190px';
+  m.innerHTML='<button onclick="window.location=\'/web#cuenta\'" style="all:unset;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:12px" onmouseover="this.style.background=\'#f0eee9\'" onmouseout="this.style.background=\'none\'">👤 Mi cuenta</button>'+
+    '<button onclick="doLogout()" style="all:unset;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:12px" onmouseover="this.style.background=\'#f0eee9\'" onmouseout="this.style.background=\'none\'">⎋ Cerrar sesión</button>';
+  document.body.appendChild(m);
+}
+function doLogout(){
+  fetch('/auth/logout',{method:'POST'}).finally(()=>{
+    localStorage.removeItem('h2ai_token');
+    window.location='/web';
+  });
+}
+/* ── FASE 20.4d: banner de email sin verificar ── */
+function showVerifyBanner(){
+  const b=document.createElement('div');
+  b.id='verifyBanner';
+  b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:999;background:#FFF4D6;color:#8B6914;border-bottom:1px solid #E8D5A0;padding:8px 16px;font-size:13px;text-align:center;font-family:inherit';
+  b.innerHTML='Verifica tu email para acceso completo (1 conversación/día sin verificar). '+
+    '<a href="#" onclick="resendVerification(this);return false" style="color:#8B6914;font-weight:700">Reenviar email</a> '+
+    '<a href="#" onclick="document.getElementById(\'verifyBanner\').remove();return false" style="color:#8B6914;margin-left:14px">✕</a>';
+  document.body.prepend(b);
+}
+async function resendVerification(link){
+  link.textContent='Enviando...';
+  try{
+    const r=await fetch('/auth/resend-verification',{method:'POST'});
+    const data=await r.json();
+    link.textContent=r.ok?(data.message||'Reenviado ✓'):'Error, reintenta';
+  }catch(e){link.textContent='Error, reintenta';}
+}
+
+function t(key,params){
+  let s=translations[key]||key;
+  if(params){for(const[k,v]of Object.entries(params))s=s.replace('{'+k+'}',v);}
+  return s;
+}
+
+function fmtTime(ts){try{return new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});}catch(e){return(ts||'').substring(11,16);}}
+function fmtTimeSec(ts){try{return new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}catch(e){return(ts||'').substring(11,19);}}
+
+async function fetchJSON(url,method='GET'){const r=await fetch(url,{method});return r.ok?r.json():null;}
+
+async function loadParticipants(){
+  const resp=await fetchJSON('/api/participants');
+  if(!resp||!resp.participants||!resp.participants.length)return;
+  participants=resp.participants;
+  buildSenderColors();
+  // FASE 31: el moderador es SIEMPRE el usuario logueado (su email = MY_MOD_ID). Si aun no ha
+  // corrido ninguna conversacion no estara en la lista de participantes -> se sintetiza su fila.
+  // No usar find(type==='human'): en BDs con datos antiguos cogia el 'miguel' residual.
+  const moderator=participants.find(p=>p.id===window.MY_MOD_ID)
+      ||{id:window.MY_MOD_ID||'miguel',role:'moderador',type:'human',status:'active'};
+  const agents=participants.filter(p=>p.type!=='human');
+  const activeAgents=agents.filter(a=>a.status==='active');
+  document.getElementById('modList').innerHTML=renderAgentRow(moderator,true);
+  // Solo agentes ACTIVOS en el menu lateral (igual que el dashboard): los bots
+  // inactivos / fantasma fuera del catalogo no deben aparecer (fix PO 2026-06-22).
+  document.getElementById('agentList').innerHTML=activeAgents.map(a=>renderAgentRow(a,false)).join('');
+  document.getElementById('agentCount').textContent=activeAgents.length;
+}
+
+function buildSenderColors(){
+  senderColors={};
+  // FASE 31: el color del moderador (paleta 0) va a MI email; 'miguel' se mantiene para hilos antiguos.
+  if(window.MY_MOD_ID) senderColors[window.MY_MOD_ID]=PALETTE[0];
+  senderColors['miguel']=PALETTE[0];
+  let colorIdx=1;
+  const activeBots=participants.filter(p=>p.type!=='human'&&p.status==='active');
+  activeBots.forEach(p=>{
+    senderColors[p.id]=PALETTE[Math.min(colorIdx,PALETTE.length-1)];
+    colorIdx++;
+  });
+  const inactiveBots=participants.filter(p=>p.type!=='human'&&p.status!=='active');
+  inactiveBots.forEach(p=>{
+    senderColors[p.id]={fg:'#999',bg:'#f0f0f0',border:'1px solid #ddd'};
+  });
+}
+
+/* ── FASE 38.3: logos comerciales de las IAs ─────────────────────────────
+   El id del bot ya lleva la marca (qwen_plus, gpt, claude…); mapeamos por
+   palabra clave (robusto porque el catalogo es editable, Fase 32). Si no hay
+   logo para ese modelo -> PLAN B: se cae al aro con la inicial de siempre.
+   Logos auto-alojados en /static/logos/ (no se enlazan de fuera). */
+/* FASE 38.3: logos SVG embebidos (para HTML exportados y galeria autocontenidos) */
+const AI_LOGO_SVG={"claude": "<svg height=\"1em\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" width=\"1em\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z\" fill=\"#D97757\" fill-rule=\"nonzero\"></path></svg>", "deepseek": "<svg height=\"1em\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" width=\"1em\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M23.748 4.482c-.254-.124-.364.113-.512.234-.051.039-.094.09-.137.136-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.156-.708-.311-.955-.65-.172-.241-.219-.51-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.093.172.187.129.323-.082.28-.18.552-.266.833-.055.179-.137.217-.329.14a5.526 5.526 0 01-1.736-1.18c-.857-.828-1.631-1.742-2.597-2.458a11.365 11.365 0 00-.689-.471c-.985-.957.13-1.743.388-1.836.27-.098.093-.432-.779-.428-.872.004-1.67.295-2.687.684a3.055 3.055 0 01-.465.137 9.597 9.597 0 00-2.883-.102c-1.885.21-3.39 1.102-4.497 2.623C.082 8.606-.231 10.684.152 12.85c.403 2.284 1.569 4.175 3.36 5.653 1.858 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.133-.284 4.994-1.86.47.234.962.327 1.78.397.63.059 1.236-.03 1.705-.128.735-.156.684-.837.419-.961-2.155-1.004-1.682-.595-2.113-.926 1.096-1.296 2.746-2.642 3.392-7.003.05-.347.007-.565 0-.845-.004-.17.035-.237.23-.256a4.173 4.173 0 001.545-.475c1.396-.763 1.96-2.015 2.093-3.517.02-.23-.004-.467-.247-.588zM11.581 18c-2.089-1.642-3.102-2.183-3.52-2.16-.392.024-.321.471-.235.763.09.288.207.486.371.739.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.167-1.361-.802-2.5-1.86-3.301-3.307-.774-1.393-1.224-2.887-1.298-4.482-.02-.386.093-.522.477-.592a4.696 4.696 0 011.529-.039c2.132.312 3.946 1.265 5.468 2.774.868.86 1.525 1.887 2.202 2.891.72 1.066 1.494 2.082 2.48 2.914.348.292.625.514.891.677-.802.09-2.14.11-3.054-.614zm1-6.44a.306.306 0 01.415-.287.302.302 0 01.2.288.306.306 0 01-.31.307.303.303 0 01-.304-.308zm3.11 1.596c-.2.081-.399.151-.59.16a1.245 1.245 0 01-.798-.254c-.274-.23-.47-.358-.552-.758a1.73 1.73 0 01.016-.588c.07-.327-.008-.537-.239-.727-.187-.156-.426-.199-.688-.199a.559.559 0 01-.254-.078c-.11-.054-.2-.19-.114-.358.028-.054.16-.186.192-.21.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.391.451.462.576.685.914.176.265.336.537.445.848.067.195-.019.354-.25.452z\" fill=\"#4D6BFE\"></path></svg>", "gemini": "<svg height=\"1em\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" width=\"1em\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"#3186FF\"></path><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"url(#lobe-icons-gemini-0-_R_0_)\"></path><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"url(#lobe-icons-gemini-1-_R_0_)\"></path><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"url(#lobe-icons-gemini-2-_R_0_)\"></path><defs><linearGradient gradientUnits=\"userSpaceOnUse\" id=\"lobe-icons-gemini-0-_R_0_\" x1=\"7\" x2=\"11\" y1=\"15.5\" y2=\"12\"><stop stop-color=\"#08B962\"></stop><stop offset=\"1\" stop-color=\"#08B962\" stop-opacity=\"0\"></stop></linearGradient><linearGradient gradientUnits=\"userSpaceOnUse\" id=\"lobe-icons-gemini-1-_R_0_\" x1=\"8\" x2=\"11.5\" y1=\"5.5\" y2=\"11\"><stop stop-color=\"#F94543\"></stop><stop offset=\"1\" stop-color=\"#F94543\" stop-opacity=\"0\"></stop></linearGradient><linearGradient gradientUnits=\"userSpaceOnUse\" id=\"lobe-icons-gemini-2-_R_0_\" x1=\"3.5\" x2=\"17.5\" y1=\"13.5\" y2=\"12\"><stop stop-color=\"#FABC12\"></stop><stop offset=\".46\" stop-color=\"#FABC12\" stop-opacity=\"0\"></stop></linearGradient></defs></svg>", "glm": "<svg height=\"1em\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" width=\"1em\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M11.991 23.503a.24.24 0 00-.244.248.24.24 0 00.244.249.24.24 0 00.245-.249.24.24 0 00-.22-.247l-.025-.001zM9.671 5.365a1.697 1.697 0 011.099 2.132l-.071.172-.016.04-.018.054c-.07.16-.104.32-.104.498-.035.71.47 1.279 1.186 1.314h.366c1.309.053 2.338 1.173 2.286 2.523-.052 1.332-1.152 2.38-2.478 2.327h-.174c-.715.018-1.274.64-1.239 1.368 0 .124.018.23.053.337.209.373.54.658.96.8.75.23 1.517-.125 1.9-.782l.018-.035c.402-.64 1.17-.96 1.92-.711.854.284 1.378 1.226 1.099 2.167a1.661 1.661 0 01-2.077 1.102 1.711 1.711 0 01-.907-.711l-.017-.035c-.2-.323-.463-.58-.851-.711l-.056-.018a1.646 1.646 0 00-1.954.746 1.66 1.66 0 01-1.065.764 1.677 1.677 0 01-1.989-1.279c-.209-.906.332-1.83 1.257-2.043a1.51 1.51 0 01.296-.035h.018c.68-.071 1.151-.622 1.116-1.333a1.307 1.307 0 00-.227-.693 2.515 2.515 0 01-.366-1.403 2.39 2.39 0 01.366-1.208c.14-.195.21-.444.227-.693.018-.71-.506-1.261-1.186-1.332l-.07-.018a1.43 1.43 0 01-.299-.07l-.05-.019a1.7 1.7 0 01-1.047-2.114 1.68 1.68 0 012.094-1.101zm-5.575 10.11c.26-.264.639-.367.994-.27.355.096.633.379.728.74.095.362-.007.748-.267 1.013-.402.41-1.053.41-1.455 0a1.062 1.062 0 010-1.482zm14.845-.294c.359-.09.738.024.992.297.254.274.344.665.237 1.025-.107.36-.396.634-.756.718-.551.128-1.1-.22-1.23-.781a1.05 1.05 0 01.757-1.26zm-.064-4.39c.314.32.49.753.49 1.206 0 .452-.176.886-.49 1.206-.315.32-.74.5-1.185.5-.444 0-.87-.18-1.184-.5a1.727 1.727 0 010-2.412 1.654 1.654 0 012.369 0zm-11.243.163c.364.484.447 1.128.218 1.691a1.665 1.665 0 01-2.188.923c-.855-.36-1.26-1.358-.907-2.228a1.68 1.68 0 011.33-1.038c.593-.08 1.183.169 1.547.652zm11.545-4.221c.368 0 .708.2.892.524.184.324.184.724 0 1.048a1.026 1.026 0 01-.892.524c-.568 0-1.03-.47-1.03-1.048 0-.579.462-1.048 1.03-1.048zm-14.358 0c.368 0 .707.2.891.524.184.324.184.724 0 1.048a1.026 1.026 0 01-.891.524c-.569 0-1.03-.47-1.03-1.048 0-.579.461-1.048 1.03-1.048zm10.031-1.475c.925 0 1.675.764 1.675 1.706s-.75 1.705-1.675 1.705-1.674-.763-1.674-1.705c0-.942.75-1.706 1.674-1.706zm-2.626-.684c.362-.082.653-.356.761-.718a1.062 1.062 0 00-.238-1.028 1.017 1.017 0 00-.996-.294c-.547.14-.881.7-.752 1.257.13.558.675.907 1.225.783zm0 16.876c.359-.087.644-.36.75-.72a1.062 1.062 0 00-.237-1.019 1.018 1.018 0 00-.985-.301 1.037 1.037 0 00-.762.717c-.108.361-.017.754.239 1.028.245.263.606.377.953.305l.043-.01zM17.19 3.5a.631.631 0 00.628-.64c0-.355-.279-.64-.628-.64a.631.631 0 00-.628.64c0 .355.28.64.628.64zm-10.38 0a.631.631 0 00.628-.64c0-.355-.28-.64-.628-.64a.631.631 0 00-.628.64c0 .355.279.64.628.64zm-5.182 7.852a.631.631 0 00-.628.64c0 .354.28.639.628.639a.63.63 0 00.627-.606l.001-.034a.62.62 0 00-.628-.64zm5.182 9.13a.631.631 0 00-.628.64c0 .355.279.64.628.64a.631.631 0 00.628-.64c0-.355-.28-.64-.628-.64zm10.38.018a.631.631 0 00-.628.64c0 .355.28.64.628.64a.631.631 0 00.628-.64c0-.355-.279-.64-.628-.64zm5.182-9.148a.631.631 0 00-.628.64c0 .354.279.639.628.639a.631.631 0 00.628-.64c0-.355-.28-.64-.628-.64zm-.384-4.992a.24.24 0 00.244-.249.24.24 0 00-.244-.249.24.24 0 00-.244.249c0 .142.122.249.244.249zM11.991.497a.24.24 0 00.245-.248A.24.24 0 0011.99 0a.24.24 0 00-.244.249c0 .133.108.236.223.247l.021.001zM2.011 6.36a.24.24 0 00.245-.249.24.24 0 00-.244-.249.24.24 0 00-.244.249.24.24 0 00.244.249zm0 11.263a.24.24 0 00-.243.248.24.24 0 00.244.249.24.24 0 00.244-.249.252.252 0 00-.244-.248zm19.995-.018a.24.24 0 00-.245.248.24.24 0 00.245.25.24.24 0 00.244-.25.252.252 0 00-.244-.248z\" fill=\"#3859FF\" fill-rule=\"nonzero\"></path></svg>", "grok": "<svg fill=\"currentColor\" fill-rule=\"evenodd\" height=\"1em\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" width=\"1em\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M9.27 15.29l7.978-5.897c.391-.29.95-.177 1.137.272.98 2.369.542 5.215-1.41 7.169-1.951 1.954-4.667 2.382-7.149 1.406l-2.711 1.257c3.889 2.661 8.611 2.003 11.562-.953 2.341-2.344 3.066-5.539 2.388-8.42l.006.007c-.983-4.232.242-5.924 2.75-9.383.06-.082.12-.164.179-.248l-3.301 3.305v-.01L9.267 15.292M7.623 16.723c-2.792-2.67-2.31-6.801.071-9.184 1.761-1.763 4.647-2.483 7.166-1.425l2.705-1.25a7.808 7.808 0 00-1.829-1A8.975 8.975 0 005.984 5.83c-2.533 2.536-3.33 6.436-1.962 9.764 1.022 2.487-.653 4.246-2.34 6.022-.599.63-1.199 1.259-1.682 1.925l7.62-6.815\"></path></svg>", "kimi": "<svg fill=\"currentColor\" fill-rule=\"evenodd\" height=\"1em\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" width=\"1em\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M1.052 16.916l9.539 2.552a21.007 21.007 0 00.06 2.033l5.956 1.593a11.997 11.997 0 01-5.586.865l-.18-.016-.044-.004-.084-.009-.094-.01a11.605 11.605 0 01-.157-.02l-.107-.014-.11-.016a11.962 11.962 0 01-.32-.051l-.042-.008-.075-.013-.107-.02-.07-.015-.093-.019-.075-.016-.095-.02-.097-.023-.094-.022-.068-.017-.088-.022-.09-.024-.095-.025-.082-.023-.109-.03-.062-.02-.084-.025-.093-.028-.105-.034-.058-.019-.08-.026-.09-.031-.066-.024a6.293 6.293 0 01-.044-.015l-.068-.025-.101-.037-.057-.022-.08-.03-.087-.035-.088-.035-.079-.032-.095-.04-.063-.028-.063-.027a5.655 5.655 0 01-.041-.018l-.066-.03-.103-.047-.052-.024-.096-.046-.062-.03-.084-.04-.086-.044-.093-.047-.052-.027-.103-.055-.057-.03-.058-.032a6.49 6.49 0 01-.046-.026l-.094-.053-.06-.034-.051-.03-.072-.041-.082-.05-.093-.056-.052-.032-.084-.053-.061-.039-.079-.05-.07-.047-.053-.035a7.785 7.785 0 01-.054-.036l-.044-.03-.044-.03a6.066 6.066 0 01-.04-.028l-.057-.04-.076-.054-.069-.05-.074-.054-.056-.042-.076-.057-.076-.059-.086-.067-.045-.035-.064-.052-.074-.06-.089-.073-.046-.039-.046-.039a7.516 7.516 0 01-.043-.037l-.045-.04-.061-.053-.07-.062-.068-.06-.062-.058-.067-.062-.053-.05-.088-.084a13.28 13.28 0 01-.099-.097l-.029-.028-.041-.042-.069-.07-.05-.051-.05-.053a6.457 6.457 0 01-.168-.179l-.08-.088-.062-.07-.071-.08-.042-.049-.053-.062-.058-.068-.046-.056a7.175 7.175 0 01-.027-.033l-.045-.055-.066-.082-.041-.052-.05-.064-.02-.025a11.99 11.99 0 01-1.44-2.402zm-1.02-5.794l11.353 3.037a20.468 20.468 0 00-.469 2.011l10.817 2.894a12.076 12.076 0 01-1.845 2.005L.657 15.923l-.016-.046-.035-.104a11.965 11.965 0 01-.05-.153l-.007-.023a11.896 11.896 0 01-.207-.741l-.03-.126-.018-.08-.021-.097-.018-.081-.018-.09-.017-.084-.018-.094c-.026-.141-.05-.283-.071-.426l-.017-.118-.011-.083-.013-.102a12.01 12.01 0 01-.019-.161l-.005-.047a12.12 12.12 0 01-.034-2.145zm1.593-5.15l11.948 3.196c-.368.605-.705 1.231-1.01 1.875l11.295 3.022c-.142.82-.368 1.612-.668 2.365l-11.55-3.09L.124 10.26l.015-.1.008-.049.01-.067.015-.087.018-.098c.026-.148.056-.295.088-.442l.028-.124.02-.085.024-.097c.022-.09.045-.18.07-.268l.028-.102.023-.083.03-.1.025-.082.03-.096.026-.082.031-.095a11.896 11.896 0 011.01-2.232zm4.442-4.4L17.352 4.59a20.77 20.77 0 00-1.688 1.721l7.823 2.093c.267.852.442 1.744.513 2.665L2.106 5.213l.045-.065.027-.04.04-.055.046-.065.055-.076.054-.072.064-.086.05-.065.057-.073.055-.07.06-.074.055-.069.065-.077.054-.066.066-.077.053-.06.072-.082.053-.06.067-.074.054-.058.073-.078.058-.06.063-.067.168-.17.1-.098.059-.056.076-.071a12.084 12.084 0 012.272-1.677zM12.017 0h.097l.082.001.069.001.054.002.068.002.046.001.076.003.047.002.06.003.054.002.087.005.105.007.144.011.088.007.044.004.077.008.082.008.047.005.102.012.05.006.108.014.081.01.042.006.065.01.207.032.07.012.065.011.14.026.092.018.11.022.046.01.075.016.041.01L14.7.3l.042.01.065.015.049.012.071.017.096.024.112.03.113.03.113.032.05.015.07.02.078.024.073.023.05.016.05.016.076.025.099.033.102.036.048.017.064.023.093.034.11.041.116.045.1.04.047.02.06.024.041.018.063.026.04.018.057.025.11.048.1.046.074.035.075.036.06.028.092.046.091.045.102.052.053.028.049.026.046.024.06.033.041.022.052.029.088.05.106.06.087.051.057.034.053.032.096.059.088.055.098.062.036.024.064.041.084.056.04.027.062.042.062.043.023.017c.054.037.108.075.161.114l.083.06.065.048.056.043.086.065.082.064.04.03.05.041.086.069.079.065.085.071c.712.6 1.353 1.283 1.909 2.031L7.222.994l.062-.027.065-.028.081-.034.086-.035c.113-.045.227-.09.341-.131l.096-.035.093-.033.084-.03.096-.031c.087-.03.176-.058.264-.085l.091-.027.086-.025.102-.03.085-.023.1-.026L9.04.37l.09-.023.091-.022.095-.022.09-.02.098-.021.091-.02.095-.018.092-.018.1-.018.091-.016.098-.017.092-.014.097-.015.092-.013.102-.013.091-.012.105-.012.09-.01.105-.01c.093-.01.186-.018.28-.024l.106-.008.09-.005.11-.006.093-.004.1-.004.097-.002.099-.002.197-.002z\"></path></svg>", "llama": "<svg height=\"1em\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" width=\"1em\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M6.897 4h-.024l-.031 2.615h.022c1.715 0 3.046 1.357 5.94 6.246l.175.297.012.02 1.62-2.438-.012-.019a48.763 48.763 0 00-1.098-1.716 28.01 28.01 0 00-1.175-1.629C10.413 4.932 8.812 4 6.896 4z\" fill=\"url(#lobe-icons-meta-0-_R_0_)\"></path><path d=\"M6.873 4C4.95 4.01 3.247 5.258 2.02 7.17a4.352 4.352 0 00-.01.017l2.254 1.231.011-.017c.718-1.083 1.61-1.774 2.568-1.785h.021L6.896 4h-.023z\" fill=\"url(#lobe-icons-meta-1-_R_0_)\"></path><path d=\"M2.019 7.17l-.011.017C1.2 8.447.598 9.995.274 11.664l-.005.022 2.534.6.004-.022c.27-1.467.786-2.828 1.456-3.845l.011-.017L2.02 7.17z\" fill=\"url(#lobe-icons-meta-2-_R_0_)\"></path><path d=\"M2.807 12.264l-2.533-.6-.005.022c-.177.918-.267 1.851-.269 2.786v.023l2.598.233v-.023a12.591 12.591 0 01.21-2.44z\" fill=\"url(#lobe-icons-meta-3-_R_0_)\"></path><path d=\"M2.677 15.537a5.462 5.462 0 01-.079-.813v-.022L0 14.468v.024a8.89 8.89 0 00.146 1.652l2.535-.585a4.106 4.106 0 01-.004-.022z\" fill=\"url(#lobe-icons-meta-4-_R_0_)\"></path><path d=\"M3.27 16.89c-.284-.31-.484-.756-.589-1.328l-.004-.021-2.535.585.004.021c.192 1.01.568 1.85 1.106 2.487l.014.017 2.018-1.745a2.106 2.106 0 01-.015-.016z\" fill=\"url(#lobe-icons-meta-5-_R_0_)\"></path><path d=\"M10.78 9.654c-1.528 2.35-2.454 3.825-2.454 3.825-2.035 3.2-2.739 3.917-3.871 3.917a1.545 1.545 0 01-1.186-.508l-2.017 1.744.014.017C2.01 19.518 3.058 20 4.356 20c1.963 0 3.374-.928 5.884-5.33l1.766-3.13a41.283 41.283 0 00-1.227-1.886z\" fill=\"#0082FB\"></path><path d=\"M13.502 5.946l-.016.016c-.4.43-.786.908-1.16 1.416.378.483.768 1.024 1.175 1.63.48-.743.928-1.345 1.367-1.807l.016-.016-1.382-1.24z\" fill=\"url(#lobe-icons-meta-6-_R_0_)\"></path><path d=\"M20.918 5.713C19.853 4.633 18.583 4 17.225 4c-1.432 0-2.637.787-3.723 1.944l-.016.016 1.382 1.24.016-.017c.715-.747 1.408-1.12 2.176-1.12.826 0 1.6.39 2.27 1.075l.015.016 1.589-1.425-.016-.016z\" fill=\"#0082FB\"></path><path d=\"M23.998 14.125c-.06-3.467-1.27-6.566-3.064-8.396l-.016-.016-1.588 1.424.015.016c1.35 1.392 2.277 3.98 2.361 6.971v.023h2.292v-.022z\" fill=\"url(#lobe-icons-meta-7-_R_0_)\"></path><path d=\"M23.998 14.15v-.023h-2.292v.022c.004.14.006.282.006.424 0 .815-.121 1.474-.368 1.95l-.011.022 1.708 1.782.013-.02c.62-.96.946-2.293.946-3.91 0-.083 0-.165-.002-.247z\" fill=\"url(#lobe-icons-meta-8-_R_0_)\"></path><path d=\"M21.344 16.52l-.011.02c-.214.402-.519.67-.917.787l.778 2.462a3.493 3.493 0 00.438-.182 3.558 3.558 0 001.366-1.218l.044-.065.012-.02-1.71-1.784z\" fill=\"url(#lobe-icons-meta-9-_R_0_)\"></path><path d=\"M19.92 17.393c-.262 0-.492-.039-.718-.14l-.798 2.522c.449.153.927.222 1.46.222.492 0 .943-.073 1.352-.215l-.78-2.462c-.167.05-.341.075-.517.073z\" fill=\"url(#lobe-icons-meta-10-_R_0_)\"></path><path d=\"M18.323 16.534l-.014-.017-1.836 1.914.016.017c.637.682 1.246 1.105 1.937 1.337l.797-2.52c-.291-.125-.573-.353-.9-.731z\" fill=\"url(#lobe-icons-meta-11-_R_0_)\"></path><path d=\"M18.309 16.515c-.55-.642-1.232-1.712-2.303-3.44l-1.396-2.336-.011-.02-1.62 2.438.012.02.989 1.668c.959 1.61 1.74 2.774 2.493 3.585l.016.016 1.834-1.914a2.353 2.353 0 01-.014-.017z\" fill=\"url(#lobe-icons-meta-12-_R_0_)\"></path><defs><linearGradient id=\"lobe-icons-meta-0-_R_0_\" x1=\"75.897%\" x2=\"26.312%\" y1=\"89.199%\" y2=\"12.194%\"><stop offset=\".06%\" stop-color=\"#0867DF\"></stop><stop offset=\"45.39%\" stop-color=\"#0668E1\"></stop><stop offset=\"85.91%\" stop-color=\"#0064E0\"></stop></linearGradient><linearGradient id=\"lobe-icons-meta-1-_R_0_\" x1=\"21.67%\" x2=\"97.068%\" y1=\"75.874%\" y2=\"23.985%\"><stop offset=\"13.23%\" stop-color=\"#0064DF\"></stop><stop offset=\"99.88%\" stop-color=\"#0064E0\"></stop></linearGradient><linearGradient id=\"lobe-icons-meta-2-_R_0_\" x1=\"38.263%\" x2=\"60.895%\" y1=\"89.127%\" y2=\"16.131%\"><stop offset=\"1.47%\" stop-color=\"#0072EC\"></stop><stop offset=\"68.81%\" stop-color=\"#0064DF\"></stop></linearGradient><linearGradient id=\"lobe-icons-meta-3-_R_0_\" x1=\"47.032%\" x2=\"52.15%\" y1=\"90.19%\" y2=\"15.745%\"><stop offset=\"7.31%\" stop-color=\"#007CF6\"></stop><stop offset=\"99.43%\" stop-color=\"#0072EC\"></stop></linearGradient><linearGradient id=\"lobe-icons-meta-4-_R_0_\" x1=\"52.155%\" x2=\"47.591%\" y1=\"58.301%\" y2=\"37.004%\"><stop offset=\"7.31%\" stop-color=\"#007FF9\"></stop><stop offset=\"100%\" stop-color=\"#007CF6\"></stop></linearGradient><linearGradient id=\"lobe-icons-meta-5-_R_0_\" x1=\"37.689%\" x2=\"61.961%\" y1=\"12.502%\" y2=\"63.624%\"><stop offset=\"7.31%\" stop-color=\"#007FF9\"></stop><stop offset=\"100%\" stop-color=\"#0082FB\"></stop></linearGradient><linearGradient id=\"lobe-icons-meta-6-_R_0_\" x1=\"34.808%\" x2=\"62.313%\" y1=\"68.859%\" y2=\"23.174%\"><stop offset=\"27.99%\" stop-color=\"#007FF8\"></stop><stop offset=\"91.41%\" stop-color=\"#0082FB\"></stop></linearGradient><linearGradient id=\"lobe-icons-meta-7-_R_0_\" x1=\"43.762%\" x2=\"57.602%\" y1=\"6.235%\" y2=\"98.514%\"><stop offset=\"0%\" stop-color=\"#0082FB\"></stop><stop offset=\"99.95%\" stop-color=\"#0081FA\"></stop></linearGradient><linearGradient id=\"lobe-icons-meta-8-_R_0_\" x1=\"60.055%\" x2=\"39.88%\" y1=\"4.661%\" y2=\"69.077%\"><stop offset=\"6.19%\" stop-color=\"#0081FA\"></stop><stop offset=\"100%\" stop-color=\"#0080F9\"></stop></linearGradient><linearGradient id=\"lobe-icons-meta-9-_R_0_\" x1=\"30.282%\" x2=\"61.081%\" y1=\"59.32%\" y2=\"33.244%\"><stop offset=\"0%\" stop-color=\"#027AF3\"></stop><stop offset=\"100%\" stop-color=\"#0080F9\"></stop></linearGradient><linearGradient id=\"lobe-icons-meta-10-_R_0_\" x1=\"20.433%\" x2=\"82.112%\" y1=\"50.001%\" y2=\"50.001%\"><stop offset=\"0%\" stop-color=\"#0377EF\"></stop><stop offset=\"99.94%\" stop-color=\"#0279F1\"></stop></linearGradient><linearGradient id=\"lobe-icons-meta-11-_R_0_\" x1=\"40.303%\" x2=\"72.394%\" y1=\"35.298%\" y2=\"57.811%\"><stop offset=\".19%\" stop-color=\"#0471E9\"></stop><stop offset=\"100%\" stop-color=\"#0377EF\"></stop></linearGradient><linearGradient id=\"lobe-icons-meta-12-_R_0_\" x1=\"32.254%\" x2=\"68.003%\" y1=\"19.719%\" y2=\"84.908%\"><stop offset=\"27.65%\" stop-color=\"#0867DF\"></stop><stop offset=\"100%\" stop-color=\"#0471E9\"></stop></linearGradient></defs></svg>", "minimax": "<svg height=\"1em\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" width=\"1em\" xmlns=\"http://www.w3.org/2000/svg\"><defs><linearGradient id=\"lobe-icons-minimax-_R_0_\" x1=\"0%\" x2=\"100.182%\" y1=\"50.057%\" y2=\"50.057%\"><stop offset=\"0%\" stop-color=\"#E2167E\"></stop><stop offset=\"100%\" stop-color=\"#FE603C\"></stop></linearGradient></defs><path d=\"M16.278 2c1.156 0 2.093.927 2.093 2.07v12.501a.74.74 0 00.744.709.74.74 0 00.743-.709V9.099a2.06 2.06 0 012.071-2.049A2.06 2.06 0 0124 9.1v6.561a.649.649 0 01-.652.645.649.649 0 01-.653-.645V9.1a.762.762 0 00-.766-.758.762.762 0 00-.766.758v7.472a2.037 2.037 0 01-2.048 2.026 2.037 2.037 0 01-2.048-2.026v-12.5a.785.785 0 00-.788-.753.785.785 0 00-.789.752l-.001 15.904A2.037 2.037 0 0113.441 22a2.037 2.037 0 01-2.048-2.026V18.04c0-.356.292-.645.652-.645.36 0 .652.289.652.645v1.934c0 .263.142.506.372.638.23.131.514.131.744 0a.734.734 0 00.372-.638V4.07c0-1.143.937-2.07 2.093-2.07zm-5.674 0c1.156 0 2.093.927 2.093 2.07v11.523a.648.648 0 01-.652.645.648.648 0 01-.652-.645V4.07a.785.785 0 00-.789-.78.785.785 0 00-.789.78v14.013a2.06 2.06 0 01-2.07 2.048 2.06 2.06 0 01-2.071-2.048V9.1a.762.762 0 00-.766-.758.762.762 0 00-.766.758v3.8a2.06 2.06 0 01-2.071 2.049A2.06 2.06 0 010 12.9v-1.378c0-.357.292-.646.652-.646.36 0 .653.29.653.646V12.9c0 .418.343.757.766.757s.766-.339.766-.757V9.099a2.06 2.06 0 012.07-2.048 2.06 2.06 0 012.071 2.048v8.984c0 .419.343.758.767.758.423 0 .766-.339.766-.758V4.07c0-1.143.937-2.07 2.093-2.07z\" fill=\"url(#lobe-icons-minimax-_R_0_)\" fill-rule=\"nonzero\"></path></svg>", "mistral": "<svg height=\"1em\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" width=\"1em\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M3.428 3.4h3.429v3.428H3.428V3.4zm13.714 0h3.43v3.428h-3.43V3.4z\" fill=\"gold\"></path><path d=\"M3.428 6.828h6.857v3.429H3.429V6.828zm10.286 0h6.857v3.429h-6.857V6.828z\" fill=\"#FFAF00\"></path><path d=\"M3.428 10.258h17.144v3.428H3.428v-3.428z\" fill=\"#FF8205\"></path><path d=\"M3.428 13.686h3.429v3.428H3.428v-3.428zm6.858 0h3.429v3.428h-3.429v-3.428zm6.856 0h3.43v3.428h-3.43v-3.428z\" fill=\"#FA500F\"></path><path d=\"M0 17.114h10.286v3.429H0v-3.429zm13.714 0H24v3.429H13.714v-3.429z\" fill=\"#E10500\"></path></svg>", "openai": "<svg fill=\"currentColor\" fill-rule=\"evenodd\" height=\"1em\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" width=\"1em\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M9.205 8.658v-2.26c0-.19.072-.333.238-.428l4.543-2.616c.619-.357 1.356-.523 2.117-.523 2.854 0 4.662 2.212 4.662 4.566 0 .167 0 .357-.024.547l-4.71-2.759a.797.797 0 00-.856 0l-5.97 3.473zm10.609 8.8V12.06c0-.333-.143-.57-.429-.737l-5.97-3.473 1.95-1.118a.433.433 0 01.476 0l4.543 2.617c1.309.76 2.189 2.378 2.189 3.948 0 1.808-1.07 3.473-2.76 4.163zM7.802 12.703l-1.95-1.142c-.167-.095-.239-.238-.239-.428V5.899c0-2.545 1.95-4.472 4.591-4.472 1 0 1.927.333 2.712.928L8.23 5.067c-.285.166-.428.404-.428.737v6.898zM12 15.128l-2.795-1.57v-3.33L12 8.658l2.795 1.57v3.33L12 15.128zm1.796 7.23c-1 0-1.927-.332-2.712-.927l4.686-2.712c.285-.166.428-.404.428-.737v-6.898l1.974 1.142c.167.095.238.238.238.428v5.233c0 2.545-1.974 4.472-4.614 4.472zm-5.637-5.303l-4.544-2.617c-1.308-.761-2.188-2.378-2.188-3.948A4.482 4.482 0 014.21 6.327v5.423c0 .333.143.571.428.738l5.947 3.449-1.95 1.118a.432.432 0 01-.476 0zm-.262 3.9c-2.688 0-4.662-2.021-4.662-4.519 0-.19.024-.38.047-.57l4.686 2.71c.286.167.571.167.856 0l5.97-3.448v2.26c0 .19-.07.333-.237.428l-4.543 2.616c-.619.357-1.356.523-2.117.523zm5.899 2.83a5.947 5.947 0 005.827-4.756C22.287 18.339 24 15.84 24 13.296c0-1.665-.713-3.282-1.998-4.448.119-.5.19-.999.19-1.498 0-3.401-2.759-5.947-5.946-5.947-.642 0-1.26.095-1.88.31A5.962 5.962 0 0010.205 0a5.947 5.947 0 00-5.827 4.757C1.713 5.447 0 7.945 0 10.49c0 1.666.713 3.283 1.998 4.448-.119.5-.19 1-.19 1.499 0 3.401 2.759 5.946 5.946 5.946.642 0 1.26-.095 1.88-.309a5.96 5.96 0 004.162 1.713z\"></path></svg>", "qwen": "<svg height=\"1em\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" width=\"1em\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M12.604 1.34c.393.69.784 1.382 1.174 2.075a.18.18 0 00.157.091h5.552c.174 0 .322.11.446.327l1.454 2.57c.19.337.24.478.024.837-.26.43-.513.864-.76 1.3l-.367.658c-.106.196-.223.28-.04.512l2.652 4.637c.172.301.111.494-.043.77-.437.785-.882 1.564-1.335 2.34-.159.272-.352.375-.68.37-.777-.016-1.552-.01-2.327.016a.099.099 0 00-.081.05 575.097 575.097 0 01-2.705 4.74c-.169.293-.38.363-.725.364-.997.003-2.002.004-3.017.002a.537.537 0 01-.465-.271l-1.335-2.323a.09.09 0 00-.083-.049H4.982c-.285.03-.553-.001-.805-.092l-1.603-2.77a.543.543 0 01-.002-.54l1.207-2.12a.198.198 0 000-.197 550.951 550.951 0 01-1.875-3.272l-.79-1.395c-.16-.31-.173-.496.095-.965.465-.813.927-1.625 1.387-2.436.132-.234.304-.334.584-.335a338.3 338.3 0 012.589-.001.124.124 0 00.107-.063l2.806-4.895a.488.488 0 01.422-.246c.524-.001 1.053 0 1.583-.006L11.704 1c.341-.003.724.032.9.34zm-3.432.403a.06.06 0 00-.052.03L6.254 6.788a.157.157 0 01-.135.078H3.253c-.056 0-.07.025-.041.074l5.81 10.156c.025.042.013.062-.034.063l-2.795.015a.218.218 0 00-.2.116l-1.32 2.31c-.044.078-.021.118.068.118l5.716.008c.046 0 .08.02.104.061l1.403 2.454c.046.081.092.082.139 0l5.006-8.76.783-1.382a.055.055 0 01.096 0l1.424 2.53a.122.122 0 00.107.062l2.763-.02a.04.04 0 00.035-.02.041.041 0 000-.04l-2.9-5.086a.108.108 0 010-.113l.293-.507 1.12-1.977c.024-.041.012-.062-.035-.062H9.2c-.059 0-.073-.026-.043-.077l1.434-2.505a.107.107 0 000-.114L9.225 1.774a.06.06 0 00-.053-.031zm6.29 8.02c.046 0 .058.02.034.06l-.832 1.465-2.613 4.585a.056.056 0 01-.05.029.058.058 0 01-.05-.029L8.498 9.841c-.02-.034-.01-.052.028-.054l.216-.012 6.722-.012z\" fill=\"url(#lobe-icons-qwen-_R_0_)\" fill-rule=\"nonzero\"></path><defs><linearGradient id=\"lobe-icons-qwen-_R_0_\" x1=\"0%\" x2=\"100%\" y1=\"0%\" y2=\"0%\"><stop offset=\"0%\" stop-color=\"#6336E7\" stop-opacity=\".84\"></stop><stop offset=\"100%\" stop-color=\"#6F69F7\" stop-opacity=\".84\"></stop></linearGradient></defs></svg>"};
+const LOGO_RULES=[
+  [/gpt|openai|o1|o3|o4/, 'openai'],
+  [/claude|anthropic|sonnet|opus|haiku/, 'claude'],
+  [/gemini|google|gemma/, 'gemini'],
+  [/qwen|qwq/, 'qwen'],
+  [/minimax/, 'minimax'],
+  [/deepseek/, 'deepseek'],
+  [/kimi|moonshot/, 'kimi'],
+  [/glm|zhipu|chatglm/, 'glm'],
+  [/grok|xai/, 'grok'],
+  [/llama|meta/, 'llama'],
+  [/mistral|mixtral/, 'mistral']
+];
+function logoFor(){
+  const s=[].slice.call(arguments).filter(Boolean).join(' ').toLowerCase();
+  for(const [re,f] of LOGO_RULES){ if(re.test(s)) return f; }
+  return null;
+}
+/* avatar = aro (grosor doble, aprobado PO) con el color del agente; dentro el
+   logo real (o la inicial si no hay logo, o si es el moderador humano). */
+function aiAvatar(id,c,size,opts){
+  opts=opts||{};
+  const bw=opts.border||Math.max(3,Math.round(size*0.13)); // ~doble del borde fino original
+  const dim=`width:${size}px;height:${size}px;font-size:${Math.round(size*0.42)}px`;
+  const logo=opts.isMod?null:logoFor(id,opts.label,opts.model);
+  if(logo){
+    // opts.inline: SVG embebido (para HTML exportados / galería, que son autocontenidos);
+    // por defecto: <img> del logo auto-alojado en /static/logos/ (app en vivo).
+    const inner=opts.inline&&typeof AI_LOGO_SVG!=='undefined'&&AI_LOGO_SVG[logo]
+      ? AI_LOGO_SVG[logo]
+      : `<img src="/static/logos/${logo}.svg" alt="" title="${opts.label||cap(id)}">`;
+    return `<span class="ai-avatar logo" style="${dim};border:${bw}px solid ${c.fg}">${inner}</span>`;
+  }
+  return `<span class="ai-avatar" style="${dim};background:${c.bg};color:${c.fg};border:${bw}px solid ${c.fg}">${(opts.name||id||'?')[0].toUpperCase()}</span>`;
+}
+
+function renderAgentRow(p,isMod){
+  const c=senderColors[p.id]||PALETTE[0];
+  const statusClass=p.status==='active'?'online':'inactive';
+  const av=isMod
+    ? `<div class="avatar" style="background:${c.bg};color:${c.fg};border:${c.border}">${(window.MY_NAME||p.id)[0].toUpperCase()}</div>`
+    : aiAvatar(p.id,c,32,{label:cap(p.id)});
+  return `<div class="agent-row" data-id="${p.id}">
+    ${av}
+     <div class="info"><div class="name">${isMod?(window.MY_NAME||cap(p.id)):cap(p.id)}</div><div class="role">${roleLabel(p.role,isMod)}</div></div>
+    <div class="status-dot ${statusClass}"></div>
+  </div>`;
+}
+
+/* ── Panel de espera (FASE 25): mientras las IAs razonan; se borra al llegar la 1ª respuesta ── */
+let _waitActive=false,_waitBaseline=0,_waitThread='',_waitTipIdx=0,_waitTipTimer=null;
+function _estimateSecs(){
+  const bots=(participants||[]).filter(p=>p.type!=='human').length||3;
+  const rounds=window._rounds||2;
+  return bots*rounds*15;  // ~15s por turno de bot (medido en Fase 25: ~12.5s LLM + 2s delay)
+}
+function _fmtDur(s){return Math.max(1,Math.round(s/60))+' min';}
+function _waitTips(){return [t('wait.tip1'),t('wait.tip2'),t('wait.tip3'),t('wait.tip4')];}
+function renderWaitPanel(){
+  return `<div class="wait-panel" id="waitPanel">
+    <div class="wait-title">🧠 ${t('wait.title')}<span class="wait-dots"></span></div>
+    <div class="wait-est">${t('wait.est',{dur:_fmtDur(_estimateSecs())})}</div>
+    <div class="wait-est" id="waitRound" style="font-weight:600"></div>
+    <div class="wait-tip" id="waitTip">${_waitTips()[_waitTipIdx%4]}</div>
+    <div class="wait-warn">${t('wait.specialty')}</div>
+  </div>`;
+}
+function startWait(thread){
+  _waitActive=true;_waitThread=thread;_waitBaseline=(allMessages||[]).length;
+  if(_waitTipTimer)clearInterval(_waitTipTimer);
+  _waitTipTimer=setInterval(()=>{_waitTipIdx++;const e=document.getElementById('waitTip');if(e)e.textContent=_waitTips()[_waitTipIdx%4];},6000);
+}
+function stopWait(){_waitActive=false;if(_waitTipTimer){clearInterval(_waitTipTimer);_waitTipTimer=null;}}
+function updateWaitProgress(round,total){const e=document.getElementById('waitRound');if(e)e.textContent=(round&&total)?t('wait.round',{n:round,total:total}):'';}
+
+async function loadChat(){
+  const resp=await fetchJSON('/api/all-messages?thread_id='+currentThread);
+  const c=document.getElementById('chatMessages');
+  if(!resp||!resp.messages){c.innerHTML='';return;}
+  /* FASE 20.1 (hallazgo UAT): el servidor devuelve el nombre canonico del hilo
+     (con el prefijo del usuario); nos sincronizamos para que menu, dashboard y
+     export apunten al hilo real. Arregla la pantalla en blanco inicial. */
+  if(resp.thread_id&&resp.thread_id!==currentThread){currentThread=resp.thread_id;}
+  allMessages=resp.messages;
+  document.getElementById('chatMsgCount').textContent=t('chat.messages',{n:allMessages.length});
+  const agentIds=new Set(allMessages.map(m=>m.sender));
+  document.getElementById('chatAgentCount').textContent=t('chat.agents',{n:agentIds.size});
+  if(allMessages.length){
+    const t0=fmtTime(allMessages[0].timestamp);
+    const t1=fmtTime(allMessages[allMessages.length-1].timestamp);
+    document.getElementById('chatTimeRange').textContent=t0+' \u2013 '+t1;
+  }
+  nonModIdx=0;
+  // FASE 35 (AI Act): aviso al principio del hilo; scrollea con el contenido (no fijo).
+  let html='<div class="ai-notice">&#9888; '+t('ai.notice')+'</div>',lastHour='';
+  const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const days=['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
+  allMessages.forEach((m,i)=>{
+    const h=fmtTime(m.timestamp);
+    if(h!==lastHour&&i>0)html+=`<div class="separator">${t('msg.new_round')} \u00b7 ${h}</div>`;
+    else if(i===0){
+      const d=new Date(m.timestamp);
+      const dateStr=days[d.getDay()]+', '+d.getDate()+' de '+months[d.getMonth()].toLowerCase()+' de '+d.getFullYear()+' \u00b7 '+h;
+      html+=`<div class="separator">${dateStr}</div>`;
+    }
+    lastHour=h;
+    html+=renderMessage(m,i);
+  });
+  /* FASE 25: panel de espera al final del chat mientras no llega la 1ª respuesta de un bot */
+  if(_waitActive && currentThread===_waitThread){
+    const newOnes=allMessages.slice(_waitBaseline);
+    if(newOnes.some(m=>!isModer(m.sender)))stopWait();  // ya respondio un bot -> fuera panel
+    else html+=renderWaitPanel();
+  }
+  /* Auto-scroll "pegajoso" (bug 2026-06-21): bajar al fondo SOLO si el usuario ya estaba
+     abajo (o cambio de conversacion). Si ha subido a leer, se respeta su posicion. */
+  const threadChanged=(window._lastChatThread!==currentThread);
+  const atBottom=threadChanged||(c.scrollHeight-c.scrollTop-c.clientHeight<100);
+  window._lastChatThread=currentThread;
+  c.innerHTML=html;
+  if(atBottom)c.scrollTop=c.scrollHeight;
+}
+
+function colorFor(senderId){
+  return senderColors[senderId]||PALETTE[0];
+}
+
+function renderMessage(m,idx){
+  /* FASE 20.1-UX2 (PO): a la WhatsApp \u2014 el color identifica SOLO en la cabecera
+     (nombre del agente); cuerpo siempre casi-negro sobre burbuja neutra; hora
+     integrada abajo-derecha DENTRO de la burbuja. */
+  const time=fmtTime(m.timestamp);
+  const isMod=isModer(m.sender);
+  let body=m.body.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  body=renderMd(body);
+  if(isMod){
+    const mc=senderColors[m.sender]||PALETTE[0];
+    /* coletilla legal bajo cada pregunta del moderador (PO 2026-06-13): se lee mientras
+       llega la primera respuesta de las IAs. */
+    return `<div class="msg-row center">
+      <div class="bubble wa center">
+        <div class="bubble-head" style="background:${mc.bg}"><span style="color:${mc.fg}">${window.MY_NAME||t('msg.moderator')}</span></div>
+        <div class="bubble-body">${body}</div>
+        <div class="bubble-time">${time}</div>
+      </div>
+    </div>
+    <div class="ai-disclaimer">${t('chat.ai_disclaimer')}</div>`;
+  }
+  const isRight=idx!==undefined&&(nonModIdx%2===1);
+  if(!isMod&&idx!==undefined)nonModIdx++;
+  const cls=isRight?'right':'left';
+  const ac=colorFor(m.sender);
+  return `<div class="msg-row ${cls}">
+    <div class="bubble wa ${cls}">
+      <div class="bubble-head" style="background:${ac.bg}">${aiAvatar(m.sender,ac,18,{label:cap(m.sender),border:3})}<span style="color:${ac.fg}">${cap(m.sender)}</span><span style="font-size:8px;font-weight:700;color:#fff;background:#6B4E00;border-radius:3px;padding:1px 4px;margin-left:4px">${t('ai.tag')}</span><span class="bh-arrow">\u2192</span><span class="bh-to">${cap(m.recipient)}</span></div>
+      <div class="bubble-body">${body}</div>
+      <div class="bubble-time">${time}</div>
+    </div>
+  </div>`;
+}
+
+async function loadDashboard(){
+  const dash=document.getElementById('dashboard');
+  const[hist,parts,all,settings]=await Promise.all([fetchJSON('/api/turn-history?thread_id='+encodeURIComponent(currentThread||'general')),fetchJSON('/api/participants'),fetchJSON('/api/all-messages'),fetchJSON('/api/settings')]);
+  if(!hist||!parts){dash.innerHTML='<div style="color:#999;text-align:center;padding:40px">'+t('dashboard.no_data')+'</div>';return;}
+
+  const history=hist.history||[];
+  const participants=parts.participants||[];
+  const allMsgs=all?all.messages||[]:[];
+  const msgs=allMsgs.filter(m=>(m.thread_id||'general')===currentThread);
+  const total=msgs.length;
+  const modCount=msgs.filter(m=>isModer(m.sender)).length;
+  const lateRound=msgs.slice(-3).length;  // por conversacion, no global (fix PO 2026-06-19)
+
+  /* pildora (PO 2026-06-13): borde oscuro del color del agente, nombre capitalizado y en negrita */
+  function pill(pid){
+    const c=senderColors[pid]||PALETTE[0];
+    // FASE 38.3: mini-logo del modelo dentro del pill (aro fino con el color del agente).
+    // Solo si hay logo; moderador/desconocido = pill de texto (sin inicial redundante).
+    const lg=logoFor(pid,cap(pid));
+    const ic=lg?`<img src="/static/logos/${lg}.svg" alt="" title="${cap(pid)}" style="width:16px;height:16px;object-fit:contain;border-radius:50%;background:#fff;border:2px solid ${c.fg};box-sizing:border-box;flex-shrink:0">`:'';
+    return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px 4px ${lg?'5px':'12px'};border-radius:12px;font-size:13px;font-weight:700;background:${c.bg};color:${c.fg};border:${c.border}">${ic}${cap(pid)}</span>`;
+  }
+
+  const recent=msgs.slice(-15).reverse(); // FASE 20.1-UX2 (PO): 15 ultimas intervenciones
+  const agentCounts={};msgs.forEach(m=>{const s=m.sender;agentCounts[s]=(agentCounts[s]||0)+1;});
+  const agentTimes={};msgs.forEach(m=>{
+    if(!agentTimes[m.sender])agentTimes[m.sender]=[];
+    agentTimes[m.sender].push(m.timestamp);
+  });
+  const maxTurns=Math.max(1,...Object.values(agentCounts));
+  // FASE 29 fix: el dashboard es POR CONVERSACION -> contar SOLO los que participaron en
+  // ESTE hilo (turnos>0), no todos los bots activos globalmente (que pueden ser de OTRA
+  // conversacion simultanea con distinta seleccion de IAs).
+  const convParticipants=participants.filter(p=>(agentCounts[p.id]||0)>0);
+  const humanCount=convParticipants.filter(p=>p.type==='human').length;
+  const agentCount=convParticipants.filter(p=>p.type!=='human').length;
+  const totalRounds=settings&&settings.settings&&settings.settings.orchestrate_rounds?parseInt(settings.settings.orchestrate_rounds):0;
+  const activeAgentsDash=convParticipants.slice().sort((a,b)=>a.type==='human'?-1:b.type==='human'?1:0);
+
+  const dashAvg=total>1?((new Date(msgs[msgs.length-1].timestamp)-new Date(msgs[0].timestamp))/1000/Math.max(1,total-1)).toFixed(1):'0';
+
+  dash.innerHTML=`
+    <div style="font-size:14px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:10px;text-transform:uppercase">${t('dashboard.title')}</div>
+     <div class="dash-stats">
+      <div class="dash-card" style="padding:8px 10px"><div style="font-size:24px;font-weight:600;color:#D4537E">${total}</div><div style="font-size:13px;color:var(--text2)">${t('dashboard.total_turns')}</div><div style="font-size:12px;color:#bbb">+${lateRound} ${t('dashboard.last_round')}</div></div>
+      <div class="dash-card" style="padding:8px 10px"><div style="font-size:24px;font-weight:600;color:#185FA5">${dashAvg}s</div><div style="font-size:13px;color:var(--text2)">${t('dashboard.avg_time')}</div><div style="font-size:12px;color:#bbb">${t('dashboard.per_response')}</div></div>
+      <div class="dash-card" style="padding:8px 10px"><div style="font-size:24px;font-weight:600;color:#3B6D11">${convParticipants.length}</div><div style="font-size:13px;color:var(--text2)">${t('dashboard.participants')}</div><div style="font-size:12px;color:#bbb">${humanCount} ${t('dashboard.mod')} &middot; ${t('chat.agents_short',{n:agentCount})}</div></div>
+      <div class="dash-card" style="padding:8px 10px"><div style="font-size:24px;font-weight:600;color:#854F0B">${modCount}</div><div style="font-size:13px;color:var(--text2)">${t('dashboard.interventions')}</div><div style="font-size:12px;color:#bbb">${t('dashboard.of_moderator')}</div></div>
+    </div>
+
+    <div style="font-size:14px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase">${t('dashboard.turn_sequence')}</div>
+      <div class="dash-card turn-seq" style="padding:14px;margin-bottom:16px" id="turnSeq">
+      ${msgs.map((m,i)=>(i>0?' <span style="color:#ccc;font-size:14px">&rsaquo;</span> ':'')+pill(m.sender)).join('')||'<span style="color:var(--text2);font-size:13px">'+t('dashboard.no_activity')+'</span>'}
+    </div>
+
+     <div class="dash-bottom">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase">${t('dashboard.activity')}</div>
+        ${activeAgentsDash.map(p=>{
+          const cnt=agentCounts[p.id]||0;
+          const pct=Math.round(cnt/maxTurns*100);
+          const isMod=p.type==='human';
+          const agentMsgs=msgs.filter(m=>m.sender===p.id);
+          const times=(agentTimes[p.id]||[]);
+          let avgTime='-';
+          if(times.length>1){let td=0;for(let i=1;i<times.length;i++)td+=new Date(times[i])-new Date(times[i-1]);avgTime=(td/times.length/1000).toFixed(1);}
+           return `<div class="dash-card" style="margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
+              ${isMod?`<div class="s-avatar moderator" style="width:26px;height:26px;font-size:11px">${(window.MY_NAME||p.id)[0].toUpperCase()}</div>`:aiAvatar(p.id,senderColors[p.id]||PALETTE[0],28,{label:cap(p.id)})}
+              <div><div style="font-size:14px;font-weight:600;color:var(--text)">${cap(p.id)}</div><div style="font-size:11px;color:var(--text2)">${roleLabel(p.role,isMod)}</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-around;margin-bottom:3px">
+              <div style="text-align:center"><div style="font-size:13px;font-weight:600;color:${(senderColors[p.id]||PALETTE[0]).fg}">${cnt}</div><div style="font-size:11px;color:var(--text2)">${t('dashboard.turns')}</div></div>
+              <div style="text-align:center"><div style="font-size:13px;font-weight:600;color:${(senderColors[p.id]||PALETTE[0]).fg}">${avgTime}s</div><div style="font-size:11px;color:var(--text2)">${t('dashboard.avg')}</div></div>
+              ${!isMod?`<div style="text-align:center"><div style="font-size:11px;font-weight:600;color:#3B6D11">0</div><div style="font-size:11px;color:var(--text2)">${t('dashboard.errors')}</div></div>`:''}
+            </div>
+            <div style="height:2px;background:#eee;border-radius:1px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${(senderColors[p.id]||PALETTE[0]).fg};border-radius:1px"></div></div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="dash-recent">
+        <div style="font-size:14px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase">${t('dashboard.recent')}</div>
+        <div class="dash-card recent-list" id="recentActivity" style="padding:0;max-height:420px;overflow-y:auto">
+          ${recent.map((m,i)=>{
+            const time=m.timestamp?fmtTimeSec(m.timestamp):'';
+            const badge=isModer(m.sender)?'<span style="font-size:12px;background:#fff;border:1px solid #ccc;border-radius:6px;padding:1px 6px;color:var(--text2)">'+t('dashboard.mod')+'</span>':'<span style="font-size:12px;background:#fff;border:1px solid #ccc;border-radius:6px;padding:1px 6px;color:#3B6D11">'+t('dashboard.correct')+'</span>';
+            return `<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;${i<recent.length-1?'border-bottom:0.5px solid #eee':''}">
+              <span style="font-size:12px;color:#bbb;width:58px;flex-shrink:0">${time}</span>
+              ${pill(m.sender)}
+              <span style="font-size:14px;color:var(--text);flex:1">${isModer(m.sender)?t('msg.intervene'):t('msg.responds')+': '+(m.body.substring(0,60).replace(/\n/g,' ')+(m.body.length>60?'…':''))}</span>
+              ${badge}
+            </div>`;
+          }).join('')||'<div style="padding:14px;color:var(--text2);text-align:center">'+t('dashboard.no_activity')+'</div>'}
+        </div>
+      </div>
+    </div>`;
+  setTimeout(()=>{const ts=document.getElementById('turnSeq');if(ts)ts.scrollLeft=0;},50);
+}
+
+async function refresh(){
+  await loadParticipants();
+  const[st,cfg]=await Promise.all([fetchJSON('/status?thread_id='+encodeURIComponent(currentThread||'general')),fetchJSON('/api/settings')]);
+  if(cfg&&cfg.settings&&cfg.settings.orchestrate_rounds)window._rounds=parseInt(cfg.settings.orchestrate_rounds)||2;  // FASE 25: para la estimacion
+  if(st){
+    const turn=st.current_turn;
+    const qlen=(st.queue||[]).length;
+    document.getElementById('footerQueue').textContent=qlen;
+    document.getElementById('footerState').textContent=st.state||'—';
+    if(turn){
+      const agents=participants.filter(p=>p.type!=='human');
+      const totalR=cfg&&cfg.settings&&cfg.settings.orchestrate_rounds?parseInt(cfg.settings.orchestrate_rounds):0;
+      const hist=(st.turn_history||[]).length;
+      const rnd=Math.floor(hist/agents.length)+1;
+      const label=totalR?turn+' ('+rnd+'/'+totalR+')':turn+' ('+rnd+'/'+agents.length+')';
+      document.getElementById('footerTurn').textContent=label;
+    }else{document.getElementById('footerTurn').textContent='—';}
+    document.getElementById('bottomTurn').textContent=orchestrating?t('chat.orchestrating'):t('chat.turn',{turn:turn||'—'});
+  }
+  loadChat();
+  loadThreads();
+}
+
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.panel+'Panel').classList.add('active');
+    if(tab.dataset.panel==='dashboard')loadDashboard();
+  });
+});
+
+document.getElementById('searchInput').addEventListener('input',e=>{
+  const q=e.target.value.toLowerCase();
+  document.querySelectorAll('#threadList .thread-row').forEach(r=>{
+    const name=(r.querySelector('.thread-name')?.textContent||'').toLowerCase();
+    r.style.display=name.includes(q)?'flex':'none';
+  });
+});
+
+function toggleSection(listId,el){const list=document.getElementById(listId);const arrow=el.querySelector('.arrow');list.classList.toggle('collapsed');arrow.classList.toggle('up');}
+function toggleSidebar(){document.querySelector('.sidebar').classList.toggle('open');}
+function syncSidebarToggleIcon(){const s=document.getElementById('sidebar');if(!s)return;const closeIcon=s.querySelector('.icon-close');const openIcon=s.querySelector('.icon-open');if(!closeIcon||!openIcon)return;
+  const mobile=window.matchMedia('(max-width:768px)').matches;
+  const closed=mobile?!s.classList.contains('open'):s.classList.contains('collapsed');
+  closeIcon.style.display=closed?'none':'';openIcon.style.display=closed?'':'none';}
+function toggleSidebarCollapse(){const s=document.getElementById('sidebar');
+  /* FASE 20.1-UX (PO): un solo boton. En movil alterna el overlay (.open); en escritorio colapsa (.collapsed). */
+  if(window.matchMedia('(max-width:768px)').matches){s.classList.toggle('open');syncSidebarToggleIcon();return;}
+  s.classList.toggle('collapsed');syncSidebarToggleIcon();}
+window.addEventListener('DOMContentLoaded',syncSidebarToggleIcon);window.addEventListener('resize',syncSidebarToggleIcon);
+
+function newThread(){
+  const name=prompt('Nombre de la nueva conversacion:');
+  if(!name||!name.trim())return;
+  const t=name.trim().replace(/\s+/g,'_');
+  currentThread=t;
+  loadChat();
+  loadThreads();
+  document.getElementById('chatTitle').textContent=threadLabel(t);
+}
+
+async function deleteThread(threadId){
+  if(!confirm(t('menu.delete_confirm').replace('{thread}',threadId)))return;
+  await fetch('/api/thread/'+threadId,{method:'DELETE'});
+  if(currentThread===threadId){currentThread='general';}
+  loadChat();
+  loadThreads();
+}
+
+function threadMenu(threadId,el,ev){
+  ev.stopPropagation();
+  const old=document.getElementById('threadMenuPopup');
+  if(old)old.remove();
+  const menu=document.createElement('div');
+  menu.id='threadMenuPopup';
+  menu.style.cssText='position:fixed;background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:999;padding:4px 0;min-width:140px;font-size:11px';
+  const rect=el.getBoundingClientRect();
+  menu.style.left=Math.min(rect.left,window.innerWidth-150)+'px';
+  menu.style.top=(rect.bottom+4)+'px';
+  menu.innerHTML=`
+    <div onclick="deleteThread('${threadId}');document.getElementById('threadMenuPopup').remove()" style="padding:7px 14px;cursor:pointer;color:#c0392b">&times; ${t('menu.delete')}</div>
+    <div onclick="shareThread('${threadId}');document.getElementById('threadMenuPopup').remove()" style="padding:7px 14px;cursor:pointer">${t('menu.share')}</div>`;
+  document.body.appendChild(menu);
+  setTimeout(()=>document.addEventListener('click',function f(e){if(!menu.contains(e.target)){menu.remove();document.removeEventListener('click',f);}},{once:true}),10);
+}
+
+function shareThread(threadId){
+  currentThread=threadId;
+  exportChat();
+}
+
+/* FASE 20.1: el prefijo interno user_N_ no se enseña al usuario */
+function threadLabel(t){return (t||'').replace(/^user_\d+_/,'');}
+
+async function loadThreads(){
+  const resp=await fetchJSON('/api/threads');
+  if(!resp)return;
+  let threads=resp.threads||[];
+  sharedThreads=resp.shared||[];
+  /* FASE 20.1 (hallazgo UAT): una conversacion recien creada aun no existe en el
+     servidor (nace con su primer mensaje); se muestra en el menu desde el principio. */
+  if(currentThread&&!threads.includes(currentThread))threads=[currentThread,...threads];
+  const allResp=await fetchJSON('/api/all-messages');
+  const allMsgs=allResp?allResp.messages||[]:[];
+  const counts={};allMsgs.forEach(m=>{const t=m.thread_id||'general';counts[t]=(counts[t]||0)+1;});
+  document.getElementById('chatTitle').textContent=threadLabel(currentThread);
+   document.getElementById('threadList').innerHTML=threads.map(t=>{
+     const cls=t===currentThread?' thread-row active':' thread-row';
+     return `<div class="${cls}" onclick="switchThread('${t}')">
+       <span class="thread-circle" style="display:none;width:24px;height:24px;border-radius:50%;background:var(--pink-bg);color:var(--pink-text);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${counts[t]||0}</span>
+       <span class="thread-name">${threadLabel(t)}</span>
+       <span class="thread-count">${counts[t]||0}</span>
+       <span class="thread-dots" onclick="threadMenu('${t}',this,event)">&#8230;</span>
+     </div>`;
+  }).join('');
+  renderShareToggle();
+}
+
+function switchThread(t){currentThread=t;loadChat();loadThreads();}
+
+/* Opt-in de compartir conversacion (default privado). Solo para conversaciones propias. */
+function renderShareToggle(){
+  const btn=document.getElementById('shareToggleBtn');
+  if(!btn)return;
+  const th=currentThread||'';
+  btn.style.display = th.startsWith('user_') ? '' : 'none';
+  const lbl=document.getElementById('shareBtnLabel');
+  if(lbl) lbl.textContent=t('share.btn');
+}
+async function toggleShareCurrent(){
+  const t=currentThread||'';
+  if(!t.startsWith('user_'))return;
+  const shared=sharedThreads.includes(t);
+  if(shared){
+    if(!confirm('¿Retirar el permiso? Esta conversación dejará de poder usarse con fines promocionales.'))return;
+  }else{
+    if(!confirm('Permites que H2AI Chat use esta conversación de forma ANÓNIMA con fines promocionales (p. ej. la galería pública). Puedes retirarlo cuando quieras. ¿Continuar?'))return;
+  }
+  const r=await fetch('/api/conversations/share',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({thread_id:t,consent:!shared})});
+  if(r&&r.ok){
+    sharedThreads = shared ? sharedThreads.filter(x=>x!==t) : sharedThreads.concat([t]);
+    renderShareToggle();
+  }
+}
+
+/* FASE 34: menu comun (Compartir enlace + Publicar) y panel del enlace publico. */
+function openShareMenu(ev){
+  ev.stopPropagation();
+  const ex=document.getElementById('shareMenuPopup'); if(ex){ex.remove();return;}
+  const th=currentThread||''; if(!th.startsWith('user_'))return;
+  const rect=ev.currentTarget.getBoundingClientRect();
+  const shared=sharedThreads.includes(th);
+  const m=document.createElement('div');
+  m.id='shareMenuPopup';
+  m.style.cssText='position:fixed;background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.16);z-index:1000;padding:4px 0;min-width:220px;font-size:12px;color:#1a1a1a';
+  m.style.left=Math.min(rect.left,window.innerWidth-230)+'px';
+  m.style.top=(rect.bottom+4)+'px';
+  m.innerHTML=
+    '<div onclick="document.getElementById(\'shareMenuPopup\').remove();openShareLink()" style="padding:9px 14px;cursor:pointer">&#128279; '+t('share.menu.link')+'</div>'+
+    '<div onclick="document.getElementById(\'shareMenuPopup\').remove();toggleShareCurrent()" style="padding:9px 14px;cursor:pointer">&#127760; '+t('share.menu.publish')+(shared?' <span style=\'color:var(--pink-accent);font-size:10px\'>&#9679;</span>':'')+'</div>';
+  document.body.appendChild(m);
+  setTimeout(()=>document.addEventListener('click',function f(e){if(!m.contains(e.target)){m.remove();document.removeEventListener('click',f);}},{once:true}),10);
+}
+
+function closeShareLink(){const el=document.getElementById('shareLinkModal'); if(el)el.style.display='none';}
+
+async function openShareLink(){
+  const th=currentThread||''; if(!th.startsWith('user_'))return;
+  document.getElementById('shareLinkModal').style.display='flex';
+  document.getElementById('shareLinkBody').innerHTML='<p style="color:var(--text2);font-size:12px;margin:6px 0">&#8230;</p>';
+  let st={shared:false};
+  try{const r=await fetch('/api/conversations/'+encodeURIComponent(th)+'/share'); if(r&&r.ok)st=await r.json();}catch(e){}
+  renderShareLinkPanel(st);
+}
+
+function renderShareLinkPanel(st){
+  const close='<button onclick="closeShareLink()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2);float:right;line-height:1">&times;</button>';
+  const title='<h3 style="font-size:15px;font-weight:700;color:var(--text);margin:0 0 10px">&#128279; '+t('share.link.title')+'</h3>';
+  let body;
+  if(st&&st.shared&&st.url){
+    body='<p style="font-size:12px;color:var(--text2);margin:0 0 10px">'+t('share.link.shared_hint')+'</p>'+
+      '<div style="display:flex;gap:8px;margin-bottom:12px">'+
+        '<input id="shareUrlInput" readonly value="'+st.url+'" onclick="this.select()" style="flex:1;min-width:0;padding:9px 10px;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text)">'+
+        '<button onclick="copyShareLink(this)" style="white-space:nowrap;padding:9px 18px;font-size:12px;font-weight:600;border:none;border-radius:8px;background:var(--pink-accent);color:#fff;cursor:pointer">'+t('share.link.copy')+'</button>'+
+      '</div>'+
+      /* FASE 36.2: codigo para incrustar (embed) en un blog externo. */
+      '<p style="font-size:11px;color:var(--text2);margin:0 0 6px">&lt;/&gt; '+t('share.link.embed')+' — '+t('share.link.embed_hint')+'</p>'+
+      '<div style="display:flex;gap:8px;margin-bottom:12px">'+
+        '<input id="embedCodeInput" readonly value=\''+embedCode(st.url)+'\' onclick="this.select()" style="flex:1;min-width:0;padding:9px 10px;font-size:11px;font-family:monospace;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text)">'+
+        '<button onclick="copyEmbedCode(this)" style="white-space:nowrap;padding:9px 18px;font-size:12px;font-weight:600;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer">'+t('share.link.copy')+'</button>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px">'+
+        '<button onclick="shareLinkCreate()" title="'+t('share.link.update_hint')+'" style="flex:1;padding:8px;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer">'+t('share.link.update')+'</button>'+
+        '<button onclick="shareLinkRevoke()" style="flex:1;padding:8px;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:#c0392b;cursor:pointer">'+t('share.link.disable')+'</button>'+
+      '</div>';
+  }else{
+    body='<p style="font-size:12px;color:var(--text2);margin:0 0 14px">'+t('share.link.intro')+'</p>'+
+      '<button onclick="shareLinkCreate()" style="width:100%;padding:10px;font-size:13px;font-weight:600;border:none;border-radius:9px;background:var(--pink-accent);color:#fff;cursor:pointer">'+t('share.link.create')+'</button>';
+  }
+  document.getElementById('shareLinkBody').innerHTML=close+title+body;
+}
+
+async function shareLinkCreate(){
+  const th=currentThread||''; if(!th.startsWith('user_'))return;
+  const r=await fetch('/api/conversations/'+encodeURIComponent(th)+'/share',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lang:currentLang})});
+  if(r&&r.ok){const d=await r.json();renderShareLinkPanel({shared:true,url:d.url,token:d.token});}
+  else{showSendError(await errDetail(r));}
+}
+
+async function shareLinkRevoke(){
+  const th=currentThread||''; if(!th.startsWith('user_'))return;
+  if(!confirm(t('share.link.disable_confirm')))return;
+  const r=await fetch('/api/conversations/'+encodeURIComponent(th)+'/share/revoke',{method:'POST'});
+  if(r&&r.ok)renderShareLinkPanel({shared:false});
+}
+
+function copyShareLink(btn){
+  const inp=document.getElementById('shareUrlInput'); if(!inp)return;
+  inp.select();
+  const done=()=>{const old=btn.textContent;btn.textContent=t('share.link.copied');setTimeout(()=>{btn.textContent=old;},1500);};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(inp.value).then(done).catch(()=>{try{document.execCommand('copy');done();}catch(e){}});}
+  else{try{document.execCommand('copy');done();}catch(e){}}
+}
+
+/* FASE 36.2: codigo <iframe> para incrustar el enlace compartido en un blog externo. */
+function embedCode(url){
+  const sep=url.indexOf('?')>=0?'&':'?';
+  return '<iframe src="'+url+sep+'embed=1" width="100%" height="600" style="border:1px solid #eee;border-radius:8px" loading="lazy"></iframe>';
+}
+function copyEmbedCode(btn){
+  const inp=document.getElementById('embedCodeInput'); if(!inp)return;
+  inp.select();
+  const done=()=>{const old=btn.textContent;btn.textContent=t('share.link.copied');setTimeout(()=>{btn.textContent=old;},1500);};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(inp.value).then(done).catch(()=>{try{document.execCommand('copy');done();}catch(e){}});}
+  else{try{document.execCommand('copy');done();}catch(e){}}
+}
+
+/* FASE 20.1 (hallazgo UAT PO): los errores del servidor (limites del plan, 4xx/5xx)
+   se muestran al usuario en vez de tragarselos en silencio. */
+function showSendError(msg){
+  let el=document.getElementById('sendErrorToast');
+  if(!el){
+    el=document.createElement('div');
+    el.id='sendErrorToast';
+    el.style.cssText='position:fixed;bottom:74px;left:50%;transform:translateX(-50%);max-width:80%;background:#fdf0ee;color:#C0392B;border:1px solid #e8c4bc;border-radius:10px;padding:10px 18px;font-size:13px;z-index:1000;box-shadow:0 4px 14px rgba(0,0,0,.12);text-align:center';
+    document.body.appendChild(el);
+  }
+  el.textContent='⚠ '+msg;
+  el.style.display='block';
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>{el.style.display='none';},9000);
+}
+async function errDetail(r){
+  try{const d=await r.json();return d.detail||d.error||('Error '+r.status);}
+  catch(e){return 'Error '+r.status;}
+}
+
+async function sendMsg(){
+  const input=document.getElementById('msgInput');
+  const body=input.value.trim();
+  if(!body)return;
+  let thread=currentThread;
+  let msgBody=body;
+  const m=body.match(/^#(\w+)\s*:?\s*(.*)/);
+  if(m){thread=m[1];msgBody=m[2];}
+  input.value='';
+
+  if(orchestrating){
+    const r=await fetch('/message/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({recipient_id:'qwen_plus',body:msgBody,sender_id:window.MY_MOD_ID||'miguel',thread_id:thread})});
+    if(!r.ok)showSendError(await errDetail(r));  /* el input ya se vacio al lanzar (PO 2026-06-13) */
+    refresh();
+    return;
+  }
+
+  document.body.classList.add('orchestrating');
+  document.getElementById('bottomTurn').textContent=t('chat.orchestrating');
+  startWait(thread);  // FASE 25: panel "las IAs estan razonando" + estimacion
+  loadChat();         // pintar el panel ya, sin esperar al primer poll
+
+  orchestrating=true;
+  try{
+    // FASE 29: /orchestrate LANZA el debate en segundo plano y responde al instante.
+    const r=await fetch('/orchestrate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({recipient_id:'qwen_plus',body:msgBody,sender_id:window.MY_MOD_ID||'miguel',thread_id:thread,lang:currentLang})});
+    if(!r.ok){showSendError(await errDetail(r));endOrchestrating();refresh();return;}  /* el input ya se vacio al lanzar */
+    if(thread!==currentThread){currentThread=thread;loadThreads();}
+    pollOrchestration(thread);  // sondear el estado hasta que el debate termine
+  }catch(e){
+    showSendError('Error de conexión');endOrchestrating();refresh();
+  }
+}
+
+// FASE 29: sondea /api/orchestration-status (running -> done/stopped/error) y pinta los mensajes.
+function pollOrchestration(thread){
+  if(orchPollTimer){clearTimeout(orchPollTimer);orchPollTimer=null;}
+  const tick=async()=>{
+    if(!orchestrating)return;
+    let st=null;
+    try{const r=await fetch('/api/orchestration-status?thread_id='+encodeURIComponent(thread));if(r.ok)st=await r.json();}catch(e){}
+    if(st&&st.status==='running'){
+      updateWaitProgress(st.round,st.total_rounds);
+      refresh();  // pintar los mensajes que van llegando
+      orchPollTimer=setTimeout(tick,2000);
+    }else{
+      const wasDone=st&&st.status==='done';
+      endOrchestrating();
+      refresh();
+      if(wasDone)maybeAskFeedback(thread);
+    }
+  };
+  tick();
+}
+function endOrchestrating(){
+  orchestrating=false;
+  if(orchPollTimer){clearTimeout(orchPollTimer);orchPollTimer=null;}
+  document.body.classList.remove('orchestrating');
+  stopWait();
+}
+
+/* ── Feedback (A: al acabar el debate · B: contacto). Endpoint /api/feedback ── */
+function maybeAskFeedback(thread){
+  if(!thread)return;
+  let asked={};try{asked=JSON.parse(localStorage.getItem('h2ai_fb_asked')||'{}');}catch(e){}
+  if(asked[thread])return;
+  asked[thread]=1;localStorage.setItem('h2ai_fb_asked',JSON.stringify(asked));
+  const old=document.getElementById('fbPanel');if(old)old.remove();
+  const d=document.createElement('div');d.id='fbPanel';d.dataset.thread=thread;d.dataset.vote='';
+  d.style.cssText='position:fixed;right:18px;bottom:96px;z-index:1000;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.14);padding:14px 16px;width:280px;font-size:13px;color:var(--text)';
+  d.innerHTML='<div style="font-weight:600;margin-bottom:8px">¿Qué te ha parecido la conversación?</div>'+
+    '<div id="fbVotes" style="display:flex;gap:8px;margin-bottom:8px">'+
+    '<button type="button" onclick="fbVote(this,\'up\')" style="flex:1;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:18px">👍</button>'+
+    '<button type="button" onclick="fbVote(this,\'down\')" style="flex:1;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:18px">👎</button></div>'+
+    '<textarea id="fbComment" placeholder="¿Algún comentario? (opcional)" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:12px;resize:vertical;min-height:46px"></textarea>'+
+    '<div style="display:flex;gap:8px;margin-top:8px">'+
+    '<button type="button" onclick="fbSend()" style="flex:1;padding:9px;border:none;border-radius:8px;background:var(--pink-accent);color:#fff;font-weight:600;cursor:pointer">Enviar</button>'+
+    '<button type="button" onclick="this.closest(\'#fbPanel\').remove()" style="padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;color:var(--text2)">Cerrar</button></div>';
+  document.body.appendChild(d);
+}
+function fbVote(btn,v){const d=document.getElementById('fbPanel');if(!d)return;d.dataset.vote=v;d.querySelectorAll('#fbVotes button').forEach(b=>b.style.borderColor='var(--border)');btn.style.borderColor='var(--pink-accent)';}
+function fbSend(){const d=document.getElementById('fbPanel');if(!d)return;const vote=d.dataset.vote||'';const comment=(document.getElementById('fbComment').value||'').trim();
+  if(!vote&&!comment){d.remove();return;}
+  fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'conversation',conversation_id:d.dataset.thread,vote:vote||null,comment:comment||null})}).catch(()=>{});
+  d.innerHTML='<div style="font-weight:600">¡Gracias por tu opinión! 🙏</div>';setTimeout(()=>{const p=document.getElementById('fbPanel');if(p)p.remove();},1800);
+}
+function openContact(){
+  const old=document.getElementById('contactModal');if(old)old.remove();
+  const m=document.createElement('div');m.id='contactModal';
+  m.style.cssText='position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:20px';
+  m.innerHTML='<div style="background:#fff;border-radius:14px;padding:22px;width:100%;max-width:420px;font-size:13px;color:var(--text)">'+
+    '<div style="font-weight:700;font-size:16px;margin-bottom:4px">Tu opinión nos ayuda 💬</div>'+
+    '<p style="color:var(--text2);margin:0 0 12px">Cuéntanos qué te parece, una duda o un fallo. Si quieres respuesta, deja tu email.</p>'+
+    '<select id="ctType" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:13px"><option value="idea">Idea / sugerencia</option><option value="duda">Duda / pregunta</option><option value="fallo">Fallo / problema</option><option value="otro">Otro</option></select>'+
+    '<textarea id="ctMsg" placeholder="Escribe aquí…" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:13px;resize:vertical;min-height:90px;margin-bottom:8px"></textarea>'+
+    '<input id="ctEmail" type="email" placeholder="Tu email (opcional)" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:13px;margin-bottom:10px">'+
+    '<div id="ctMsgErr" style="color:#C0392B;font-size:12px;margin-bottom:8px;display:none">Escribe algo antes de enviar.</div>'+
+    '<div style="display:flex;gap:8px"><button type="button" onclick="sendContact()" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--pink-accent);color:#fff;font-weight:600;cursor:pointer">Enviar</button>'+
+    '<button type="button" onclick="document.getElementById(\'contactModal\').remove()" style="padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;color:var(--text2)">Cancelar</button></div></div>';
+  m.addEventListener('click',e=>{if(e.target===m)m.remove();});
+  document.body.appendChild(m);
+}
+function sendContact(){
+  const msg=(document.getElementById('ctMsg').value||'').trim();
+  if(!msg){document.getElementById('ctMsgErr').style.display='block';return;}
+  const type=document.getElementById('ctType').value;const email=(document.getElementById('ctEmail').value||'').trim();
+  fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'contact',contact_type:type,comment:msg,contact_email:email||null})}).catch(()=>{});
+  const m=document.getElementById('contactModal');if(m)m.querySelector('div').innerHTML='<div style="font-weight:700;font-size:16px">¡Gracias! 🙏</div><p style="color:var(--text2);margin:8px 0 0">Hemos recibido tu mensaje.</p>';
+  setTimeout(()=>{const x=document.getElementById('contactModal');if(x)x.remove();},1800);
+}
+
+function stopOrchestrate(){
+  endOrchestrating();  // FASE 29: corta el sondeo; el backend para el bucle via /orchestrate/stop
+  fetch('/orchestrate/stop?thread_id='+encodeURIComponent(currentThread||'general'),{method:'POST'});
+}
+
+/* PAUSA (PO 2026-06-13): detiene el turno en curso para que el moderador intervenga sin
+   prisa. No resetea la conversacion (los mensajes se conservan); al enviar, continua. */
+function pauseOrchestrate(){
+  endOrchestrating();  // FASE 29: corta el sondeo; el backend para el bucle via /orchestrate/stop
+  fetch('/orchestrate/stop?thread_id='+encodeURIComponent(currentThread||'general'),{method:'POST'});
+  document.getElementById('bottomTurn').textContent=t('chat.paused');
+  const inp=document.getElementById('msgInput');
+  if(inp)inp.focus();
+}
+
+document.getElementById('msgInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendMsg();});
+
+async function importConversation(f){
+  const st=document.getElementById('importStatus');
+  const file=f.files[0];
+  if(!file){st.style.display='none';return;}
+  st.style.display='block';st.textContent='Importando...';st.style.color='#999';
+  try{
+    const html=await file.text();
+    const resp=await fetch('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({html})});
+    const data=await resp.json();
+    if(data.error){st.textContent=data.error;st.style.color='#c0392b';}
+    else if(data.imported>0){st.textContent='OK: '+data.imported+' de '+data.total+' mensajes importados';st.style.color='var(--green-on)';}
+    else{st.textContent='Sin mensajes nuevos';st.style.color='var(--text2)';}
+  }catch(e){st.textContent='Error al importar';st.style.color='#c0392b';}
+}
+
+/* ── FASE 27: el engranaje. Admin -> config de la app; usuario -> su config (acotada al plan) ── */
+/* FASE 27: la rueda del chat es "Tu configuración" para TODOS (admin incluido). La config
+   de la aplicación (timeout, delay, presupuesto, modelos) vive ahora en /admin. */
+function openConfig(){ openUserPrefs(); }
+
+let _prefsCreat=1;
+async function openUserPrefs(){
+  const d=await fetchJSON('/api/me/prefs'); if(!d)return;
+  const L=d.limits||{}, p=d.prefs||{}, eff=d.effective||{};
+  document.getElementById('prefsPlan').textContent='Plan '+(d.plan||'');
+  const rEl=document.getElementById('prefsRounds'); rEl.max=L.max_rounds; rEl.value=(p.rounds!=null?p.rounds:eff.rounds)||1;
+  document.getElementById('prefsRoundsMax').textContent='(máx. '+L.max_rounds+')';
+  const tEl=document.getElementById('prefsTokens'); tEl.max=L.max_tokens; tEl.value=(p.max_tokens!=null?p.max_tokens:eff.max_tokens)||L.max_tokens;
+  document.getElementById('prefsTokensMax').textContent='(máx. '+L.max_tokens+')';
+  const cap=(L.max_creativity!=null?L.max_creativity:2); const labels=d.creativity_labels||['Enfocada','Equilibrada','Creativa'];
+  let html='';
+  for(let i=0;i<=cap;i++) html+='<button type="button" onclick="setCreat('+i+')" id="creat'+i+'" style="flex:1;padding:7px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:12px">'+labels[i]+'</button>';
+  document.getElementById('prefsCreativity').innerHTML=html;
+  let cur=(p.creativity!=null?p.creativity:1); if(cur>cap)cur=cap; setCreat(cur);
+  // IAs (pieza B): catalogo filtrado por el plan + seleccion del usuario
+  const md=await fetchJSON('/api/me/models');
+  if(md){
+    window._prefsMaxModels=md.max_models||3;
+    document.getElementById('prefsModelsMax').textContent='(elige hasta '+window._prefsMaxModels+')';
+    const sel=new Set(md.selected||[]);
+    document.getElementById('prefsModels').innerHTML=(md.available||[]).map(m=>
+      '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" class="pmodel" value="'+m.id+'" '+(sel.has(m.id)?'checked':'')+' onchange="modelToggle(this)"> '+
+      m.label+' <span style="color:var(--text2);font-size:11px">'+m.role+(m.provider==='openrouter'?' · premium':'')+'</span></label>').join('');
+  }
+  document.getElementById('prefsSysPrompt').value = p.system_prompt_extra || '';
+  document.getElementById('userPrefsModal').style.display='flex';
+}
+function modelToggle(cb){
+  const n=document.querySelectorAll('#prefsModels .pmodel:checked').length;
+  if(n>(window._prefsMaxModels||3)) cb.checked=false;
+}
+function setCreat(i){ _prefsCreat=i; document.querySelectorAll('#prefsCreativity button').forEach((b,idx)=>{b.style.background=(idx===i)?'var(--pink-accent)':'#fff';b.style.color=(idx===i)?'#fff':'var(--text)';}); }
+function closeUserPrefs(){ document.getElementById('userPrefsModal').style.display='none'; }
+async function savePrefs(){
+  const models=Array.from(document.querySelectorAll('#prefsModels .pmodel:checked')).map(c=>c.value);
+  const body={rounds:Number(document.getElementById('prefsRounds').value), max_tokens:Number(document.getElementById('prefsTokens').value), creativity:_prefsCreat, models:models, system_prompt_extra:document.getElementById('prefsSysPrompt').value};
+  await fetch('/api/me/prefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  closeUserPrefs();
+}
+
+async function toggleSettings(){
+  const m=document.getElementById('settingsModal');
+  if(m.style.display==='flex'){m.style.display='none';return;}
+  const resp=await fetchJSON('/api/settings');
+  if(!resp)return;
+  const s=resp.settings;
+  document.getElementById('setRounds').value=s.orchestrate_rounds;
+  document.getElementById('setLLMTimeout').value=s.orchestrate_llm_timeout;
+  document.getElementById('setBotDelay').value=s.orchestrate_bot_delay;
+  document.getElementById('setContext').value=s.orchestrate_context_limit;
+  document.getElementById('setTemp').value=s.llm_temperature;
+  document.getElementById('setMaxTokens').value=s.llm_max_tokens;
+  document.getElementById('setPrompt').value=(currentLang==='en')?(s.llm_system_prompt_en||''):s.llm_system_prompt;
+  document.getElementById('setBots').value=s.bots_config;
+  localizeSettings();
+  renderBotsList();
+  highlightActiveProfile(s.bots_config);
+  m.style.display='flex';
+}
+
+async function saveSettings(){
+  const settings={
+    orchestrate_rounds:document.getElementById('setRounds').value,
+    orchestrate_llm_timeout:document.getElementById('setLLMTimeout').value,
+    orchestrate_bot_delay:document.getElementById('setBotDelay').value,
+    orchestrate_context_limit:document.getElementById('setContext').value,
+    llm_temperature:document.getElementById('setTemp').value,
+    llm_max_tokens:document.getElementById('setMaxTokens').value,
+    bots_config:document.getElementById('setBots').value
+  };
+  const sp=document.getElementById('setPrompt').value;
+  if(currentLang==='en'){settings.llm_system_prompt_en=sp;}else{settings.llm_system_prompt=sp;}
+  await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(settings)});
+  document.getElementById('settingsModal').style.display='none';
+}
+
+async function factoryReset(){
+  if(!confirm('Esto borrara TODOS los mensajes, participantes y configuracion. ¿Seguro?'))return;
+  await fetch('/api/reset',{method:'POST'});
+  document.getElementById('settingsModal').style.display='none';
+  refresh();
+}
+
+async function resetSettings(){
+  await fetch('/api/settings/reset',{method:'POST'});
+  const resp=await fetchJSON('/api/settings');
+  if(!resp)return;
+  const s=resp.settings;
+  document.getElementById('setRounds').value=s.orchestrate_rounds;
+  document.getElementById('setLLMTimeout').value=s.orchestrate_llm_timeout;
+  document.getElementById('setBotDelay').value=s.orchestrate_bot_delay;
+  document.getElementById('setContext').value=s.orchestrate_context_limit;
+  document.getElementById('setTemp').value=s.llm_temperature;
+  document.getElementById('setMaxTokens').value=s.llm_max_tokens;
+  document.getElementById('setPrompt').value=(currentLang==='en')?(s.llm_system_prompt_en||''):s.llm_system_prompt;
+  document.getElementById('setBots').value=s.bots_config;
+  renderBotsList();
+}
+
+let botsConfig={};
+function renderBotsList(){
+  try{botsConfig=JSON.parse(document.getElementById('setBots').value||'{}');}catch(e){botsConfig={};}
+  document.getElementById('botsList').innerHTML=Object.entries(botsConfig).map(([id,c])=>
+    `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg2);border-radius:6px;margin-bottom:4px;font-size:11px">
+      <span><b>${id}</b> <span style="color:var(--text2)">${c.provider}</span> ${c.model} <span style="color:var(--text2);font-size:10px">${c.role}</span></span>
+      <button onclick="removeBot('${id}')" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;padding:0 4px">&times;</button>
+    </div>`
+  ).join('');
+}
+
+async function loadProfile(name){
+  const resp=await fetchJSON('/api/settings/profile?profile='+name, 'POST');
+  if(!resp||!resp.success)return;
+  const settings=await fetchJSON('/api/settings');
+  if(!settings)return;
+  document.getElementById('setBots').value=settings.settings.bots_config;
+  renderBotsList();
+  highlightActiveProfile(settings.settings.bots_config);
+}
+
+function highlightActiveProfile(botsConfigRaw){
+  try{const cfg=JSON.parse(botsConfigRaw||'{}');const ids=Object.keys(cfg);
+    const isOpenCode=ids.includes('qwen')||ids.includes('deepseek');
+    const isOpenRouter=ids.includes('gpt')||ids.includes('claude');
+    document.getElementById('profOpenCode').classList.toggle('active',isOpenCode);
+    document.getElementById('profOpenRouter').classList.toggle('active',isOpenRouter);
+  }catch(e){}
+}
+
+function showAddBot(){
+  document.getElementById('addBotForm').style.display='block';
+  document.getElementById('newBotId').value='';
+  document.getElementById('newBotModel').value='';
+  document.getElementById('newBotRole').value='';
+}
+
+function addBot(){
+  const id=document.getElementById('newBotId').value.trim();
+  const provider=document.getElementById('newBotProvider').value;
+  const model=document.getElementById('newBotModel').value.trim();
+  const role=document.getElementById('newBotRole').value.trim()||t('msg.role_agent');
+  if(!id||!model)return;
+  botsConfig[id]={provider,model,role,email:id+'@bot.humania.local'};
+  document.getElementById('setBots').value=JSON.stringify(botsConfig);
+  document.getElementById('addBotForm').style.display='none';
+  renderBotsList();
+}
+
+function removeBot(id){
+  delete botsConfig[id];
+  document.getElementById('setBots').value=JSON.stringify(botsConfig);
+  renderBotsList();
+}
+
+function renderMd(t){let h=marked.parse(t,{breaks:true,gfm:true});if(/^<p>.*<\/p>\n?$/.test(h))h=h.replace(/^<p>/,'').replace(/<\/p>\n?$/,'');return h;}
+
+function exportChat(){
+  const msgs=allMessages||[];
+  if(!msgs.length)return;
+  function sc(id){return senderColors[id]||PALETTE[0];}
+  let c=0,lastHour='';
+  const rows=msgs.map((m,i)=>{
+    const isMod=isModer(m.sender);
+    const ac=sc(m.sender);
+    const color=ac.fg;
+    const bub={bg:ac.bg,border:ac.border};
+    const time=m.timestamp?fmtTimeSec(m.timestamp):'';
+    const hour=m.timestamp?fmtTime(m.timestamp):'';
+    if(!isMod)c++;
+    const side=isMod?'center':(c%2===1?'left':'right');
+    let sep='';
+    if(i===0)sep=`<div class="round-sep">${t('export.start')} · ${time}</div>`;
+    else if(hour!==lastHour&&!isMod){sep=`<div class="round-sep">${t('export.new_round')} · ${time}</div>`;}
+    lastHour=hour;
+    const bodyT=renderMd(m.body); /* sin .replace(/</g) porque marked.parse ya maneja el HTML seguro y los tags markdown (<strong>, <em>) deben conservarse */
+    /* FASE 20.1-UX2 (PO): mismo diseno WhatsApp que el chat de produccion — cabecera con
+       banda del color del agente + cuerpo blanco + hora integrada en la burbuja. */
+    const head=isMod
+      ? `<div class="bubble-head" style="background:${bub.bg}"><span style="color:${color}">${t('msg.moderator_label')}</span></div>`
+      : `<div class="bubble-head" style="background:${bub.bg}">${aiAvatar(m.sender,ac,18,{label:cap(m.sender),border:3,inline:true})}<span style="color:${color}">${cap(m.sender)}</span><span style="font-size:8px;font-weight:700;color:#fff;background:#6B4E00;border-radius:3px;padding:1px 4px;margin-left:4px">${t('ai.tag')}</span><span class="bh-arrow">→</span><span class="bh-to">${cap(m.recipient)}</span></div>`;
+    return `${sep}<div class="msg-row ${side}">
+  <div class="bubble wa ${side}">
+    ${head}
+    <div class="bubble-body">${bodyT}</div>
+    <div class="bubble-time">${time}</div>
+  </div>
+</div>`;
+  }).join('\n');
+
+  const legend=Object.entries(senderColors).map(([name,c])=>
+    `<div class="legend-item"><div class="legend-dot" style="background:${c.fg}"></div>${name}</div>`
+  ).join('');
+
+  const firstMsg=msgs.find(m=>!isModer(m.sender))||msgs[0];
+  const ogDesc=(firstMsg?firstMsg.body:t('export.desc_fallback')).replace(/<[^>]*>/g,'').substring(0,200);
+  const html=`<!DOCTYPE html>
+<html lang="${currentLang}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="ai-generated" content="true"><title>H2AI Chat - ${currentThread}</title>
+<meta property="og:title" content="H2AI Chat - ${currentThread} · ${msgs.length} ${t('export.messages')}">
+<meta property="og:description" content="${ogDesc}...">
+<meta property="og:type" content="article">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="H2AI Chat - ${currentThread}">
+<meta name="twitter:description" content="${ogDesc}...">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#F4F1EC;padding:20px;max-width:760px;margin:0 auto}
+  header{text-align:center;margin-bottom:20px;padding:16px;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+  header h1{font-size:18px;color:#D4537E;margin-bottom:4px}
+  header p{font-size:11px;color:#999}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:16px}
+  .legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#555}
+  .legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+  /* FASE 20.1-UX2 (PO): mismo estilo WhatsApp que el chat de produccion */
+  .msg-row{display:flex;flex-direction:column;margin-bottom:10px;max-width:72%}
+  .msg-row.left{align-items:flex-start;margin-right:auto}
+  .msg-row.right{align-items:flex-end;margin-left:auto}
+  .msg-row.center{align-items:center;margin:16px auto;max-width:74%}
+  .bubble.wa{background:#fff;box-shadow:0 1px 1px rgba(0,0,0,.08);border:0.5px solid rgba(0,0,0,.05);border-radius:10px;overflow:hidden;width:100%}
+  .bubble-head{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:6px 12px}
+  .bubble-head .bh-arrow,.bubble-head .bh-to{color:#999;font-weight:500}
+  .ai-avatar{border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;box-sizing:border-box;font-weight:700;line-height:1}
+  .ai-avatar.logo{background:#fff}
+  .ai-avatar svg{width:62%;height:62%;display:block}
+  .bubble-body{padding:8px 12px 2px;font-size:12px;line-height:1.6;color:#333;word-break:break-word}
+  .bubble-time{font-size:10px;color:#999;text-align:right;padding:0 12px 6px}
+  .round-sep{text-align:center;font-size:9px;color:#ccc;text-transform:uppercase;letter-spacing:1px;margin:16px 0}
+  footer{text-align:center;margin-top:20px;font-size:10px;color:#ccc}
+  .bubble ul,.bubble ol{padding-left:18px;margin:4px 0}
+  .bubble li{margin-bottom:2px}
+  .bubble table{border-collapse:collapse;margin:6px 0;font-size:11px}
+  .bubble th,.bubble td{border:1px solid #ddd;padding:4px 8px;text-align:left}
+  .bubble th{background:#f5f5f5;font-weight:600}
+  .bubble code{background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:11px}
+  .bubble p{margin:0 0 4px}
+  .bubble p:last-child{margin-bottom:0}
+  .bubble hr{border:none;border-top:1px solid #ddd;margin:8px 0}
+</style></head><body>
+<div style="background:#FFF3D6;border-bottom:1px solid #EBCF8A;color:#6B4E00;font-size:12px;line-height:1.5;padding:9px 18px;text-align:center">&#9888; ${t('ai.notice')}</div>
+<header><h1>H2AI Chat</h1><p>${t('export.thread')}: ${currentThread} · ${msgs.length} ${t('export.messages')} · ${new Date().toLocaleString(currentLang==='en'?'en-US':'es-ES')}</p></header>
+<div class="legend">${legend}</div>
+<main>${rows}</main>
+<footer>H2AI Chat · © 2026 h2aichat.com</footer>
+<` + `script type="application/json" id="messages-data">${JSON.stringify(msgs.map(m=>({message_id:m.message_id,sender:m.sender,recipient:m.recipient,body:m.body,timestamp:m.timestamp,sequence:m.sequence||0,read:m.read||0,content_type:m.content_type||'text/plain',thread_id:m.thread_id||currentThread})))}</` + `script>
+</body></html>`;
+
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='h2aichat_'+currentThread+'_'+new Date().toISOString().replace(/:/g,'').replace(/\..+/,'').replace('T','_')+'.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* FASE 38.1: el boton de descarga abre un menu de formatos (HTML / Markdown). */
+function openExportMenu(ev){
+  ev.stopPropagation();
+  const ex=document.getElementById('exportMenuPopup'); if(ex){ex.remove();return;}
+  if(!(allMessages||[]).length)return;
+  const rect=ev.currentTarget.getBoundingClientRect();
+  const m=document.createElement('div');
+  m.id='exportMenuPopup';
+  m.style.cssText='position:fixed;background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.16);z-index:1000;padding:4px 0;min-width:200px;font-size:12px;color:#1a1a1a';
+  m.style.left=Math.min(rect.left,window.innerWidth-210)+'px';
+  m.style.top=(rect.bottom+4)+'px';
+  m.innerHTML=
+    '<div onclick="document.getElementById(\'exportMenuPopup\').remove();exportChat()" style="padding:9px 14px;cursor:pointer">&#128196; '+t('export.as_html')+'</div>'+
+    '<div onclick="document.getElementById(\'exportMenuPopup\').remove();exportMarkdown()" style="padding:9px 14px;cursor:pointer">&#128221; '+t('export.as_markdown')+'</div>';
+  document.body.appendChild(m);
+  setTimeout(()=>document.addEventListener('click',function f(e){if(!m.contains(e.target)){m.remove();document.removeEventListener('click',f);}},{once:true}),10);
+}
+
+/* FASE 38.1: exportar la conversacion a Markdown (cliente). Cuerpo tal cual (ya es markdown). */
+function exportMarkdown(){
+  const msgs=allMessages||[];
+  if(!msgs.length)return;
+  const dateStr=new Date().toLocaleString(currentLang==='en'?'en-US':'es-ES');
+  let md='# H2AI Chat\n\n';
+  md+='**'+t('export.thread')+':** '+currentThread+' · '+msgs.length+' '+t('export.messages')+' · `'+dateStr+'`\n\n';
+  md+='> ⚠ '+t('ai.notice')+'\n\n---\n\n';
+  msgs.forEach(function(mm){
+    const time=mm.timestamp?fmtTimeSec(mm.timestamp):'';
+    const head=isModer(mm.sender)?t('msg.moderator_label'):(cap(mm.sender)+' → '+cap(mm.recipient));
+    md+='### '+head+(time?' · `'+time+'`':'')+'\n\n'+(mm.body||'').trim()+'\n\n';
+  });
+  md+='---\n\n_'+t('export.md_viewer')+' [Mark Text](https://github.com/marktext/marktext)._\n\n_H2AI Chat · h2aichat.com_\n';
+  const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='h2aichat_'+currentThread+'_'+new Date().toISOString().replace(/:/g,'').replace(/\..+/,'').replace('T','_')+'.md';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function localizeSettings(){
+  document.getElementById('settingsModalTitle').textContent=t('settings.title');
+  document.getElementById('setSecOrch').textContent=t('settings.orchestration');
+  document.getElementById('setRoundsLabel').textContent=t('settings.rounds');
+  document.getElementById('setLLMTimeoutLabel').textContent=t('settings.timeout');
+  document.getElementById('setBotDelayLabel').textContent=t('settings.delay');
+  document.getElementById('setContextLabel').textContent=t('settings.context');
+  document.getElementById('setLLMSectionLabel').textContent=t('settings.llm');
+  document.getElementById('setTempLabel').textContent=t('settings.temperature');
+  document.getElementById('setMaxTokensLabel').textContent=t('settings.max_tokens');
+  document.getElementById('setPromptLabel').textContent=t('settings.system_prompt')+' ('+(currentLang||'es').toUpperCase()+')';
+  { const h=document.getElementById('setPromptHint'); if(h)h.textContent=t('settings.system_prompt_hint'); }
+  document.getElementById('setBotsLabel').textContent=t('settings.bots');
+  document.getElementById('addBotBtn').textContent=t('settings.add_bot');
+  document.getElementById('setBotsLabel').nextElementSibling.textContent=t('settings.add_bot');
+  const setText=(id,key)=>{const e=document.getElementById(id);if(e)e.textContent=t(key);};
+  const setq=(sel,key)=>{const e=document.querySelector(sel);if(e)e.textContent=t(key);};
+  setq('#profOpenCode .name','profile.economy');
+  setq('#profOpenCode .detail','profile.economy_detail');
+  setq('#profOpenRouter .name','profile.premium');
+  setq('#profOpenRouter .detail','profile.premium_detail');
+  setText('importLabel','import.title');
+  setText('importDesc','import.desc');
+  setText('importBtn','import.button');
+  setText('saveBtn','settings.save');
+  setText('resetBtn','settings.reset');
+  const ra=document.getElementById('resetAllBtn');
+  if(ra){ra.textContent=t('settings.reset_all');ra.title=t('settings.reset_all_title');}
+}
+
+/* FASE 27: i18n del engranaje del usuario (su config acotada al plan). */
+function localizeUserPrefs(){
+  const set=(id,key)=>{const e=document.getElementById(id);if(e)e.textContent=t(key);};
+  set('prefsTitle','prefs.title');
+  set('prefsSub','prefs.sub');
+  set('prefsRoundsLabel','settings.rounds');
+  set('prefsCreativityLabel','prefs.creativity');
+  set('prefsTokensLabel','prefs.max_tokens');
+  set('prefsIasLabel','prefs.ias');
+  set('prefsExtraLabel','prefs.extra');
+  set('prefsExtraHint','prefs.extra_hint');
+  set('prefsCloseBtn','prefs.close');
+  set('prefsSaveBtn','settings.save');
+  const ta=document.getElementById('prefsSysPrompt'); if(ta)ta.placeholder=t('prefs.extra_ph');
+}
+
+(async function(){
+loadLangs();
+await loadLang(currentLang);
+setInterval(refresh,10000);
+})();
+
+async function switchLang(lang){await loadLang(lang);}
+
+async function loadLang(lang){
+  const resp=await fetchJSON('/api/i18n/'+lang);
+  if(!resp)return;
+  translations=resp.translations;
+  currentLang=lang;
+  localStorage.lang=lang;
+  /* FASE 33.1: comparte el idioma con la landing (que lee la cookie web_lang). Sincroniza chat->landing. */
+  try{document.cookie='web_lang='+lang+';path=/;max-age=31536000;samesite=lax';}catch(e){}
+  document.title=t('app.title');
+  localizeStatic();
+  localizeSettings();
+  localizeUserPrefs();
+  refresh();
+  if(document.getElementById('dashboardPanel').classList.contains('active')){
+    loadDashboard();
+  }
+}
+
+function localizeStatic(){
+  const el=id=>document.getElementById(id);
+  const set=(id,key)=>{const e=el(id);if(e)e.textContent=t(key);};
+  const tip=(id,key)=>{const e=el(id);if(e)e.title=t(key);};
+  // tooltips de la barra inferior: data-tooltip (se muestran ARRIBA del icono)
+  const tipUp=(id,key)=>{const e=el(id);if(e)e.setAttribute('data-tooltip',t(key));};
+  set('sidebarTitle','sidebar.participants');
+  set('secModLabel','sidebar.moderator');
+  set('secAgentsLabel','sidebar.agents');
+  set('footerTurnLabel','sidebar.turn');
+  set('footerQueueLabel','sidebar.queue');
+  set('footerStateLabel','sidebar.state');
+  set('tabChat','tabs.chat');
+  set('tabDashboard','tabs.dashboard');
+  set('chatTitle','chat.title');
+  tipUp('stopBtn','chat.stop');
+  tipUp('pauseBtn','chat.pause');
+  tipUp('sendBtn','chat.send');
+  tip('settingsBtn','settings.title');
+  tip('exportBtn','chat.export');
+  const s=el('searchInput');if(s)s.placeholder=t('sidebar.search');
+  const m=el('msgInput');if(m)m.placeholder=t('chat.input_placeholder');
+  set('feedbackLink','menu.feedback');
+  const nt=document.querySelector('.new-thread-text');if(nt)nt.textContent=t('sidebar.new_thread_text');
+  renderShareToggle();
+}
+
+async function loadLangs(){
+  const resp=await fetchJSON('/api/languages');
+  if(!resp)return;
+  const sel=document.getElementById('langSelect');
+  sel.innerHTML=resp.languages.filter(l=>l.available).map(l=>'<option value="'+l.code+'"'+(l.code===currentLang?' selected':'')+'>'+l.flag+' '+l.name+'</option>').join('');
+}
+</script>
+<!-- FASE 27: engranaje del usuario (su config, acotada a su plan) -->
+<div id="userPrefsModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);z-index:999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:22px;width:100%;max-width:380px;color:var(--text)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+      <h3 id="prefsTitle" style="font-size:15px;font-weight:700;margin:0">Tu configuración</h3>
+      <span id="prefsPlan" style="font-size:11px;color:var(--text2);text-transform:capitalize"></span>
+    </div>
+    <p id="prefsSub" style="color:var(--text2);font-size:12px;margin:0 0 14px">Ajusta tus conversaciones según tu plan.</p>
+    <label style="font-size:13px;font-weight:600"><span id="prefsRoundsLabel">Rondas</span> <span id="prefsRoundsMax" style="font-weight:400;color:var(--text2)"></span></label>
+    <input type="number" id="prefsRounds" min="1" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--border);border-radius:8px;margin:4px 0 12px">
+    <label id="prefsCreativityLabel" style="font-size:13px;font-weight:600">Creatividad</label>
+    <div id="prefsCreativity" style="display:flex;gap:6px;margin:5px 0 12px"></div>
+    <label style="font-size:13px;font-weight:600"><span id="prefsTokensLabel">Máx. tokens por respuesta</span> <span id="prefsTokensMax" style="font-weight:400;color:var(--text2)"></span></label>
+    <input type="number" id="prefsTokens" min="64" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--border);border-radius:8px;margin:4px 0 14px">
+    <label style="font-size:13px;font-weight:600"><span id="prefsIasLabel">IAs</span> <span id="prefsModelsMax" style="font-weight:400;color:var(--text2)"></span></label>
+    <div id="prefsModels" style="display:flex;flex-direction:column;gap:5px;margin:6px 0 16px;max-height:150px;overflow-y:auto"></div>
+    <label style="font-size:13px;font-weight:600"><span id="prefsExtraLabel">Instrucciones extra para las IAs</span> <span id="prefsExtraHint" style="font-weight:400;color:var(--text2)">(se añaden a las del sistema; déjalo vacío para usar las de por defecto)</span></label>
+    <textarea id="prefsSysPrompt" rows="3" maxlength="2000" placeholder="Ej.: Responde siempre en castellano y de forma breve." style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:12px;resize:vertical;margin:4px 0 14px;font-family:inherit"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="prefsCloseBtn" onclick="closeUserPrefs()" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;color:var(--text2)">Cerrar</button>
+      <button id="prefsSaveBtn" onclick="savePrefs()" style="padding:8px 20px;border:none;border-radius:8px;background:var(--pink-accent);color:#fff;font-weight:600;cursor:pointer">Guardar</button>
+    </div>
+  </div>
+</div>
+<!-- FASE 34: modal del enlace publico de la conversacion -->
+<div id="shareLinkModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:1001;align-items:center;justify-content:center" onclick="if(event.target===this)closeShareLink()">
+  <div style="background:var(--bg);border-radius:14px;width:460px;max-width:92vw;padding:22px;box-shadow:0 10px 40px rgba(0,0,0,.25)">
+    <div id="shareLinkBody"></div>
+  </div>
+</div>
+<div id="settingsModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);z-index:999;align-items:center;justify-content:center">
+  <div style="background:var(--bg);border-radius:12px;width:440px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <h3 style="font-size:14px;font-weight:700;color:var(--text);margin:0" id="settingsModalTitle">Configuracion</h3>
+      <button onclick="toggleSettings()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2);padding:0 4px">&times;</button>
+    </div>
+    <div style="padding:18px;overflow-y:auto">
+      <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:10px;text-transform:uppercase" id="setSecOrch">Orquestacion</div>
+      <div class="dash-card" style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <label style="font-size:12px;color:var(--text)" id="setRoundsLabel">Rondas</label>
+          <input type="number" id="setRounds" min="1" max="5" style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:center">
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <label style="font-size:12px;color:var(--text)" id="setLLMTimeoutLabel">Timeout por bot (s)</label>
+          <input type="number" id="setLLMTimeout" min="5" max="120" style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:center">
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <label style="font-size:12px;color:var(--text)" id="setBotDelayLabel">Delay entre bots (s)</label>
+          <input type="number" id="setBotDelay" min="0" max="30" step="0.5" style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:center">
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <label style="font-size:12px;color:var(--text)" id="setContextLabel">Contexto (mensajes)</label>
+          <input type="number" id="setContext" min="1" max="9" style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:center">
+        </div>
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:10px;text-transform:uppercase" id="setLLMSectionLabel">LLM</div>
+      <div class="dash-card" style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <label style="font-size:12px;color:var(--text)" id="setTempLabel">Temperature</label>
+          <input type="number" id="setTemp" min="0" max="1.2" step="0.1" style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:center">
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <label style="font-size:12px;color:var(--text)" id="setMaxTokensLabel">Max tokens</label>
+          <input type="number" id="setMaxTokens" min="100" max="2000" step="100" style="width:70px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:center">
+        </div>
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:4px;text-transform:uppercase" id="setPromptLabel">System prompt</div>
+      <div style="font-size:10px;color:var(--text2);margin-bottom:6px" id="setPromptHint">Instrucción que reciben TODAS las IAs. Aquí puedes añadir, p. ej.: «Responde siempre en castellano y de forma breve.» La pestaña (ES)/(EN) corresponde al idioma del chat.</div>
+      <textarea id="setPrompt" rows="4" placeholder="Ej.: Responde siempre en castellano y de forma breve." style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text);resize:vertical;margin-bottom:14px;font-family:inherit"></textarea>
+      <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase"><span id="setBotsLabel">Bots</span> <button onclick="showAddBot()" style="background:var(--pink-accent);color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;margin-left:8px" id="addBotBtn">+ A&#241;adir</button></div>
+      <div class="profile-pick">
+        <button class="profile-btn active" id="profOpenCode" onclick="loadProfile('opencode')">
+          <span class="name">Economico</span>
+          <span class="detail">OpenCode Go · qwen + minimax + deepseek · tarifa plana</span>
+        </button>
+        <button class="profile-btn" id="profOpenRouter" onclick="loadProfile('openrouter')">
+          <span class="name">Premium</span>
+          <span class="detail">OpenRouter · GPT-5.4 + Claude + Gemini · ~$1/dialogo largo</span>
+        </button>
+      </div>
+      <div id="addBotForm" style="display:none;margin-bottom:8px;padding:8px;background:var(--bg2);border-radius:8px">
+        <input id="newBotId" placeholder="ID" style="width:80px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:10px;margin-right:4px">
+        <select id="newBotProvider" style="padding:3px 4px;border:1px solid var(--border);border-radius:4px;font-size:10px;margin-right:4px"><option value="cloud">cloud</option><option value="local">local</option></select>
+        <input id="newBotModel" placeholder="modelo" style="width:100px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:10px;margin-right:4px">
+        <input id="newBotRole" placeholder="rol" style="width:70px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:10px;margin-right:4px">
+        <button onclick="addBot()" style="background:var(--green-on);color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer;margin-right:4px">OK</button>
+        <button onclick="document.getElementById('addBotForm').style.display='none'" style="background:none;border:none;color:var(--text2);font-size:10px;cursor:pointer" id="cancelAddBotBtn">Cancelar</button>
+      </div>
+      <div id="botsList" style="margin-bottom:14px"></div>
+      <textarea id="setBots" style="display:none"></textarea>
+      <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase" id="importLabel">Importar</div>
+      <div class="dash-card" style="margin-bottom:14px">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px" id="importDesc">Carga un HTML exportado para reconstruir la conversacion en la base de datos.</div>
+        <input type="file" id="importFile" accept=".html" onchange="importConversation(this)" style="display:none">
+        <button id="importBtn" onclick="document.getElementById('importFile').click()" style="padding:6px 14px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:11px;cursor:pointer;color:var(--text)">Seleccionar archivo HTML</button>
+        <span id="importStatus" style="font-size:10px;color:var(--green-on);margin-left:8px;display:none"></span>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="factoryReset()" style="padding:8px 16px;border:1px solid #e74c3c;border-radius:8px;background:var(--bg);color:#e74c3c;font-size:12px;cursor:pointer" id="resetAllBtn" title="Borra todos los mensajes, participantes y configuracion">Reiniciar todo</button>
+        <button onclick="resetSettings()" style="padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:12px;cursor:pointer" id="resetBtn">Reset defaults</button>
+        <button onclick="saveSettings()" style="padding:8px 20px;border:none;border-radius:8px;background:var(--pink-accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer" id="saveBtn">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Dependencias de RUNTIME de la app (versiones fijadas — reproducibilidad, Fase 37.1).
+# Instala con:  pip install -r requirements.txt
+# Nota: la rama `postgresql` añade aquí psycopg[binary] y alembic (ver plans/phase_37/PHASE_37_1.md).
+fastapi==0.136.1
+uvicorn==0.47.0
+httpx==0.28.1
+pydantic==2.13.4
+PyJWT==2.13.0
+bcrypt==5.0.0
+PyYAML==6.0.3
+requests==2.34.0
+psutil==7.2.2

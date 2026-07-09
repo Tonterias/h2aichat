@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panel — H2AI Chat</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<style>
+  :root{--pink:#E8186E;--bg:#F6F5F2;--card:#fff;--border:rgba(0,0,0,.1);--text:#1a1a1a;--text2:#5a5855}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);padding:24px;max-width:min(1850px,97vw);margin:0 auto}
+  h1{font-size:24px;margin-bottom:4px}
+  .sub{color:var(--text2);font-size:13px;margin-bottom:24px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .card h3{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin-bottom:12px}
+  .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px;font-size:14px}
+  .row .k{color:var(--text2)}
+  .row .v{font-weight:700}
+  .big{font-size:30px;font-weight:800;color:var(--pink);line-height:1}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+  th{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)}
+  .ok{color:#16A34A;font-weight:700}.no{color:#C0392B}
+  a.btn{display:inline-block;background:var(--pink);color:#fff;text-decoration:none;padding:9px 16px;border-radius:9px;font-weight:600;font-size:13px}
+  .msg{background:#fff;border:1px solid var(--border);border-radius:14px;padding:28px;text-align:center}
+  .muted{color:var(--text2);font-size:12px;margin-top:8px}
+  .clk{cursor:pointer}
+  .search{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-size:14px;margin-bottom:12px}
+  .abtn{background:#fff;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:12px;cursor:pointer;color:var(--text);white-space:nowrap}
+  .abtn:hover{background:var(--bg)}
+  .abtn.danger{color:#C0392B;border-color:#e7b9b1}
+  .abtn.danger:hover{background:#fdecea}
+  .abtn.sel{background:var(--pink);color:#fff;border-color:var(--pink)}
+  /* Packs: agrupar acciones relacionadas */
+  .pack{display:inline-flex;gap:4px;padding:3px;border-radius:9px;background:var(--bg)}
+  .pack.danger-pack{background:#fdecea}
+  .plansel{padding:4px 6px;border:1px solid var(--border);border-radius:7px;font-size:12px;background:#fff;cursor:pointer}
+  /* Leyendas (tooltip) POR ENCIMA del cursor (leccion 117) */
+  [data-tip]{position:relative}
+  [data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:6px;background:#1a1a1a;color:#fff;font-size:11px;font-weight:400;line-height:1.3;padding:6px 9px;border-radius:6px;white-space:normal;width:max-content;max-width:220px;text-align:center;z-index:30;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+  .acts{display:flex;flex-wrap:wrap;gap:4px}
+  .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+  .pill.free{background:#eef;color:#3b5}.pill.premium{background:#fde6f1;color:var(--pink)}
+  .pill.active{background:#e6f7ec;color:#16A34A}.pill.suspended{background:#fdecea;color:#C0392B}
+  .ficha{background:var(--bg);border-radius:9px;padding:10px 12px;margin:4px 0 10px;font-size:12px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:9px;font-size:13px;opacity:0;transition:opacity .2s;z-index:9}
+  .toast.show{opacity:.95}
+</style>
+</head>
+<body>
+  <h1>Panel de control</h1>
+  <div class="sub">H2AI Chat · solo administración</div>
+  <div id="content"><p>Cargando…</p></div>
+
+<script>
+const token = localStorage.getItem('h2ai_token');
+function n(x){return (x===undefined||x===null)?'—':x;}
+function nf(x){return (x===undefined||x===null)?'—':Number(x).toLocaleString('es-ES');}
+function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+async function load(){
+  const c = document.getElementById('content');
+  if(!token){ c.innerHTML = noauth('Inicia sesión como administrador para ver el panel.'); return; }
+  try{
+    const r = await fetch('/api/admin/stats', {headers:{'Authorization':'Bearer '+token}});
+    if(r.status===401){ localStorage.removeItem('h2ai_token'); c.innerHTML = noauth('Tu sesión ha caducado. Vuelve a iniciar sesión.'); return; }
+    if(r.status===403){ c.innerHTML = noauth('Esta cuenta no es de administración. Inicia sesión con la cuenta de admin.'); return; }
+    if(!r.ok){ c.innerHTML = '<div class="msg">No se pudo cargar el panel.</div>'; return; }
+    const d = await r.json();
+    c.innerHTML = render(d);
+    loadUsers();
+    loadOrchTimes();
+    loadPlanLimits();
+    loadCatalog();
+    loadAppConfig();
+    loadComments();
+    loadHealth();
+    loadStaging();
+    if(!window._healthTimer) window._healthTimer = setInterval(loadHealth, 10000);  // auto-refresco 10s
+  }catch(e){ c.innerHTML = '<div class="msg">Error de conexión.</div>'; }
+}
+function noauth(m){
+  return '<div class="msg"><p>'+esc(m)+'</p><p class="muted">El panel solo lo ve la cuenta de administración.</p>'+
+    '<p style="margin-top:16px"><a class="btn" href="/web#login">Ir a iniciar sesión</a></p></div>';
+}
+function render(d){
+  let recientes = (d.recientes||[]).map(u =>
+    '<tr><td>'+esc(u.email)+'</td><td>'+esc((u.created_at||'').replace('T',' ').slice(0,16))+'</td><td>'+
+    (u.verified?'<span class="ok">✓</span>':'<span class="no">✗</span>')+'</td></tr>').join('');
+  if(!recientes) recientes = '<tr><td colspan="3" style="color:var(--text2)">Sin registros</td></tr>';
+  return `
+  <div class="card" style="border:1px solid #f1c0c0;background:#FCF4F4"><h3 style="color:#B42318">🖥️ PROD (esta máquina) <span class="muted" style="font-size:12px;font-weight:400">— producción en vivo; cuidado al reiniciar</span></h3>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px">
+      <span style="font-weight:700;color:#16A34A">🟢 En marcha</span>
+      <button class="abtn" onclick="restartServer()" data-tip="Reinicia solo el proceso de la app (vuelve en segundos vía systemd). Útil para liberar memoria.">⟳ Reiniciar servidor (proceso)</button>
+      <button class="abtn danger" onclick="rebootMachine()" data-tip="Reinicia el DROPLET entero (~1 min de corte; aplica el kernel pendiente). PROD y PRE vuelven solos.">🔄 Reiniciar la MÁQUINA</button>
+      <span id="prodMsg" class="muted"></span>
+    </div>
+    <div class="muted" style="margin-top:8px">«Reiniciar servidor» = solo la app (segundos). «Reiniciar la máquina» = todo el droplet (~1 min, aplica actualizaciones de kernel pendientes). Hazlo en momento de poco tráfico.</div>
+  </div>
+  <div class="card" style="margin-top:16px;border:1px solid #bcd3f5;background:#F2F7FE"><h3 style="color:#1A5FB4">🧪 PRE-PROD (staging) <span class="muted" style="font-size:12px;font-weight:400">— entorno de pruebas en el mismo droplet; NO afecta a producción</span></h3>
+    <div id="stagingPanel"><p class="muted">Cargando…</p></div>
+  </div>
+  <div class="grid" style="margin-top:16px">
+    <div class="card"><h3>👤 Usuarios</h3>
+      <div class="big">${n(d.users_total)}</div>
+      <div class="muted" style="margin:6px 0 12px">total</div>
+      <div class="row"><span class="k">Nuevos hoy</span><span class="v">${n(d.users_today)}</span></div>
+      <div class="row"><span class="k">Últimos 7 días</span><span class="v">${n(d.users_7d)}</span></div>
+      <div class="row"><span class="k">Verificados</span><span class="v">${n(d.users_verified)} / ${n(d.users_total)}</span></div>
+      <div class="row"><span class="k">Free / Pro</span><span class="v">${n(d.users_free)} / ${n(d.users_pro)}</span></div>
+    </div>
+    <div class="card"><h3>💬 Actividad</h3>
+      <div class="row"><span class="k">Orquestaciones hoy</span><span class="v">${n(d.orq_today)}</span></div>
+      <div class="row"><span class="k">Orquestaciones total</span><span class="v">${n(d.orq_total)}</span></div>
+      <div class="row"><span class="k">Conversaciones</span><span class="v">${n(d.conversaciones)}</span></div>
+      <div class="row"><span class="k">Mensajes</span><span class="v">${n(d.mensajes)}</span></div>
+      <div class="muted" style="margin-top:8px">Una conversación puede tener varias orquestaciones.</div>
+    </div>
+    <div class="card"><h3>🔢 Tokens consumidos</h3>
+      <div class="big">${nf(d.tokens_total)}</div>
+      <div class="muted" style="margin:6px 0 12px">total (todos los usuarios)</div>
+      <div class="row"><span class="k">Razonamiento</span><span class="v">${nf(d.tokens_reasoning)}</span></div>
+      <div class="row"><span class="k">Prompt</span><span class="v">${nf(d.tokens_prompt)}</span></div>
+      <div class="row"><span class="k">Respuesta</span><span class="v">${nf(d.tokens_completion)}</span></div>
+      <div class="muted" style="margin-top:8px">El razonamiento suele dominar el coste; Zen es tarifa plana, OpenRouter es por token.</div>
+    </div>
+    <div class="card"><h3>⭐ Feedback</h3>
+      <div class="row"><span class="k">👍 / 👎 / 😐</span><span class="v">${n(d.fb_up)} / ${n(d.fb_down)} / ${n(d.fb_neutral)}</span></div>
+      <div class="row"><span class="k">Contactos / opiniones</span><span class="v">${n(d.fb_contacts)}</span></div>
+    </div>
+    <div class="card"><h3>📈 Tráfico</h3>
+      <div class="muted" style="margin-bottom:12px">Visitas, páginas y referrers (de dónde llega la gente) están en GoAccess.</div>
+      <a class="btn" href="/goaccess/" target="_blank" rel="noopener">Abrir GoAccess</a>
+    </div>
+    <div class="card clk" onclick="toggleStartups()" style="grid-column:span 2"><h3>🟢 Último arranque</h3>
+      <div class="v" style="font-size:15px;font-weight:700">${fmt(d.last_startup)}</div>
+      <div class="row" style="margin-top:8px"><span class="k">Arranques 24h</span><span class="v">${n(d.startups_24h)}</span></div>
+      <div class="muted">Pincha para ver el historial de reinicios (detectar caídas).</div>
+      <div id="startupHist"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>🩺 Salud del sistema <span class="muted" style="font-size:12px;font-weight:400">— capacidad real de la máquina (distinto de GoAccess, que es tráfico web)</span>
+    <button class="abtn" onclick="resetHealth()" style="float:right;font-size:12px" data-tip="Vacía la gráfica, el pico y los tiempos para empezar una medición nueva. NO borra usuarios ni conversaciones.">↺ Reiniciar estadísticas</button></h3>
+    <div id="healthPanel"><p class="muted">Cargando…</p></div>
+  </div>
+  <div class="card"><h3>🆕 Últimos registros</h3>
+    <table><thead><tr><th>Email</th><th>Fecha</th><th>Verif.</th></tr></thead><tbody>${recientes}</tbody></table>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>🛠️ Gestión de usuarios</h3>
+    <input class="search" id="uSearch" placeholder="Buscar por email o nombre…" oninput="onSearch()">
+    <div id="usersTable"><p class="muted">Cargando usuarios…</p></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>🎚️ Configuración de planes (máximos por plan)</h3>
+    <div class="muted" style="margin-bottom:10px">El tope que cada plan puede usar. Cada usuario ajusta SUS variables sin pasar de estos máximos.</div>
+    <div id="planLimits"><p class="muted">Cargando…</p></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>🤖 Catálogo de IAs</h3>
+    <div class="muted" style="margin-bottom:10px">Las IAs disponibles para los usuarios (según su plan). Edita modelo, tokens, rol o el razonamiento sin tocar código. El <b>modelo</b> tiene autocompletado, indicando su proveedor (OpenCode u OpenRouter). <b>"Raz."</b> = razonamiento activo; desmárcalo solo si el modelo se queda en blanco razonando (p. ej. Kimi), así responde directo.</div>
+    <div id="catalogBox"><p class="muted">Cargando…</p></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>⚙️ Configuración de la aplicación</h3>
+    <div class="muted" style="margin-bottom:10px">Ajustes de sistema (solo admin): protegen coste y estabilidad. No los ve ningún usuario.</div>
+    <div id="appConfig"><p class="muted">Cargando…</p></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>🗄️ Copia de seguridad</h3>
+    <div class="muted" style="margin-bottom:10px">Crea una copia de la base de datos en el servidor (copia "en caliente", segura aunque haya tráfico). Se conservan las últimas 10.</div>
+    <button class="btn" onclick="doBackup()" data-tip="Hace una copia de seguridad de la base de datos ahora mismo, guardada en el servidor.">💾 Hacer backup ahora</button>
+    <span id="backupResult" class="muted" style="margin-left:10px"></span>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>💬 Comentarios en conversaciones</h3>
+    <div class="muted" style="margin-bottom:10px">Lo que la gente escribe al terminar una conversación (los pulgares sin texto se cuentan arriba, en ⭐ Feedback). Se muestran los últimos 100; la paginación llegará con la Fase 37.x.</div>
+    <div id="convComments"><p class="muted">Cargando…</p></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>⏱️ Tiempos de orquestación</h3>
+    <div class="muted" style="margin-bottom:10px">A wall = total · B LLM (lo que piensan las IAs) · C lock (contención) · D delays fijos · E overhead. Se guardan aunque el cliente reciba un 504.</div>
+    <div id="orchTimes"><p class="muted">Cargando…</p></div>
+  </div>`;
+}
+
+/* ── FASE 30: control de PRE-PROD (staging) ── */
+async function loadStaging(){
+  const el=document.getElementById('stagingPanel'); if(!el||!token) return;
+  try{
+    const r=await fetch('/api/admin/staging/status',{headers:{'Authorization':'Bearer '+token}});
+    if(!r.ok){ el.innerHTML='<p class="muted">No disponible.</p>'; return; }
+    const d=await r.json(); const on=!!d.active;
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-weight:700;color:${on?'#16A34A':'#888'}">${on?'🟢 En marcha':'⚪ Parado'}</span>
+      <span class="muted">estado: ${d.state||'—'}</span>
+      <button class="btn" style="background:#16A34A" onclick="startStaging()" ${on?'disabled':''}>▶ Arrancar</button>
+      <button class="abtn danger" onclick="stopStaging()" ${on?'':'disabled'}>⏹ Tumbar</button>
+      <button class="abtn" onclick="loadStaging()">↻ Actualizar</button>
+      <span id="stagingMsg" class="muted"></span></div>
+    <div class="muted" style="margin-top:8px">Vive en el mismo droplet; tenerlo parado libera RAM. Arráncalo solo cuando vayas a probar en <a href="https://staging.h2aichat.com" target="_blank" rel="noopener">staging.h2aichat.com</a>.</div>`;
+  }catch(e){ el.innerHTML='<p class="muted">Error al cargar el estado.</p>'; }
+}
+async function startStaging(){ await _stagingAction('start','Arrancando…'); }
+async function stopStaging(){ if(!confirm('¿Tumbar PRE-PROD? Podrás arrancarlo otra vez cuando quieras.')) return; await _stagingAction('stop','Parando…'); }
+async function _stagingAction(act,msg){
+  const m=document.getElementById('stagingMsg'); if(m){m.style.color='var(--text2)';m.textContent=msg;}
+  try{
+    const r=await fetch('/api/admin/staging/'+act,{method:'POST',headers:{'Authorization':'Bearer '+token}});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.ok){ if(m){m.style.color='#E8186E';m.textContent='✗ '+(d.error||'no se pudo');} return; }
+    setTimeout(loadStaging,1500);
+  }catch(e){ if(m){m.style.color='#E8186E';m.textContent='Error de conexión';} }
+}
+
+/* ── Formato de fechas — el servidor guarda en UTC; aquí se muestra en hora de Madrid ── */
+function toMadrid(s){
+  s=String(s||'').replace(' ','T');
+  if(!/[zZ]|[+-]\d\d:?\d\d$/.test(s)) s+='Z';   // sin zona => es UTC
+  const d=new Date(s); if(isNaN(d)) return null;
+  const p=new Intl.DateTimeFormat('es-ES',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(d);
+  const g=t=>(p.find(x=>x.type===t)||{}).value||'';
+  return {year:g('year'),month:g('month'),day:g('day'),hour:g('hour'),minute:g('minute')};
+}
+function fmt(s){ if(!s||s==='0')return '—'; const m=toMadrid(s);
+  return m ? `${m.day}/${m.month}/${m.year} ${m.hour}:${m.minute}` : String(s).replace('T',' ').slice(0,16); }
+
+/* ── FASE 32: editor del catálogo de IAs ── */
+let _catProviders=['cloud','openrouter'], _catRoles=['creativo','estratega','analista'];
+async function loadCatalog(){
+  const box=document.getElementById('catalogBox'); if(!box||!token) return;
+  try{
+    const r=await fetch('/api/admin/catalog',{headers:{'Authorization':'Bearer '+token}});
+    if(!r.ok){ box.innerHTML='<p class="muted">No disponible.</p>'; return; }
+    const d=await r.json();
+    _catProviders=d.providers||_catProviders; _catRoles=d.roles||_catRoles;
+    let models=[];
+    try{
+      const [c,o]=await Promise.all([
+        fetch('/api/admin/provider-models?provider=cloud',{headers:{'Authorization':'Bearer '+token}}),
+        fetch('/api/admin/provider-models?provider=openrouter',{headers:{'Authorization':'Bearer '+token}})]);
+      if(c.ok)models=models.concat(((await c.json()).models||[]).map(m=>({id:m,prov:'OpenCode'})));
+      if(o.ok)models=models.concat(((await o.json()).models||[]).map(m=>({id:m,prov:'OpenRouter'})));
+    }catch(e){}
+    box.innerHTML=renderCatalog(d.catalog||[], models);
+  }catch(e){ box.innerHTML='<p class="muted">Error al cargar el catálogo.</p>'; }
+}
+function renderCatalog(cat, models){
+  const dl='<datalist id="modelOpts">'+models.map(m=>`<option value="${esc(m.id)}">${esc(m.prov)}</option>`).join('')+'</datalist>';
+  const rows=cat.map(m=>catalogRow(m)).join('');
+  return dl+`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed">
+    <colgroup><col style="width:9%"><col style="width:11%"><col style="width:27%"><col style="width:13%"><col style="width:19%"><col style="width:7%"><col style="width:6%"><col style="width:4%"></colgroup>
+    <thead><tr style="text-align:left;color:var(--text2)"><th>Id</th><th>Etiqueta</th><th>Modelo</th><th>Proveedor</th><th>Rol</th><th>Tokens</th><th style="text-align:center"><span title="Razonamiento del modelo. Déjalo MARCADO (razona) salvo que el modelo se quede en blanco cuando razona (p. ej. Kimi); desmarcado responde directo." style="border-bottom:1px dotted #999;cursor:help">Raz.</span></th><th></th></tr></thead>
+    <tbody id="catRows">${rows}</tbody></table></div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="abtn" onclick="addCatalogRow()">➕ Añadir IA</button>
+      <button class="btn" onclick="saveCatalog()">Guardar catálogo</button>
+      <button class="abtn" onclick="resetCatalog()" data-tip="Vuelve al catálogo de fábrica (descarta tus cambios)">↺ Restaurar por defecto</button>
+      <span id="catMsg" class="muted"></span>
+    </div>`;
+}
+function catalogRow(m){
+  m=m||{};
+  const pl=p=>p==='cloud'?'OpenCode':(p==='openrouter'?'OpenRouter':p);
+  const po=_catProviders.map(p=>`<option value="${p}" ${m.provider===p?'selected':''}>${pl(p)}</option>`).join('');
+  const ro=_catRoles.map(r=>`<option value="${r}" ${m.role===r?'selected':''}>${r}</option>`).join('');
+  const s='style="width:100%;box-sizing:border-box;padding:5px;border:1px solid #ddd;border-radius:6px;font-size:13px"';
+  return `<tr style="border-top:1px solid var(--border)">
+    <td><input class="c-id" value="${esc(m.id||'')}" ${s}></td>
+    <td><input class="c-label" value="${esc(m.label||'')}" ${s}></td>
+    <td><input class="c-model" list="modelOpts" value="${esc(m.model||'')}" ${s}></td>
+    <td><select class="c-prov" ${s}>${po}</select></td>
+    <td><select class="c-role" ${s}>${ro}</select></td>
+    <td><input class="c-tok" type="number" value="${m.max_tokens||800}" ${s}></td>
+    <td style="text-align:center"><input class="c-reason" type="checkbox" ${m.reasoning_effort?'':'checked'}></td>
+    <td><button class="abtn danger" onclick="this.closest('tr').remove()" title="Quitar">✕</button></td></tr>`;
+}
+function addCatalogRow(){ const t=document.getElementById('catRows'); if(t) t.insertAdjacentHTML('beforeend', catalogRow({})); }
+async function saveCatalog(){
+  const rows=[...document.querySelectorAll('#catRows tr')].map(tr=>{ const o={
+    id:tr.querySelector('.c-id').value, label:tr.querySelector('.c-label').value,
+    model:tr.querySelector('.c-model').value, provider:tr.querySelector('.c-prov').value,
+    role:tr.querySelector('.c-role').value, max_tokens:parseInt(tr.querySelector('.c-tok').value)||800 };
+    if(!tr.querySelector('.c-reason').checked) o.reasoning_effort='none'; return o; });
+  const msg=document.getElementById('catMsg'); if(msg){msg.style.color='var(--text2)';msg.textContent='Guardando…';}
+  try{
+    const r=await fetch('/api/admin/catalog',{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({catalog:rows})});
+    if(!r.ok){ const e=await r.json().catch(()=>({})); if(msg){msg.style.color='#E8186E';msg.textContent='✗ '+(e.detail||'Error al guardar');} return; }
+    if(msg){msg.style.color='#16A34A';msg.textContent='✓ Catálogo guardado';}
+    loadCatalog();
+  }catch(e){ if(msg){msg.style.color='#E8186E';msg.textContent='Error de conexión';} }
+}
+async function resetCatalog(){
+  if(!confirm('¿Restaurar el catálogo de fábrica? Se descartan tus cambios.')) return;
+  try{ await fetch('/api/admin/catalog/reset',{method:'POST',headers:{'Authorization':'Bearer '+token}}); loadCatalog(); }catch(e){}
+}
+
+/* ── FASE 28: Salud del sistema ── */
+function pct(v){ return v==null?'—':v+'%'; }
+function hColor(v,thr){ if(v==null) return '#888'; if(v>=thr) return '#e74c3c'; if(v>=thr*0.75) return '#e67e22'; return '#27ae60'; }
+function hBar(v,thr){ const c=hColor(v,thr), w=Math.max(0,Math.min(100,v||0));
+  return `<div style="height:8px;background:#eee;border-radius:4px;overflow:hidden;margin-top:6px"><div style="height:100%;width:${w}%;background:${c}"></div></div>`; }
+function tsParts(s){ const m=toMadrid(s);            // en hora de Madrid
+  if(!m){ const x=String(s||'').replace('T',' '); return {day:x.slice(0,10), dm:'', time:x.slice(11,16)}; }
+  return {day:`${m.year}-${m.month}-${m.day}`, dm:`${m.day}/${m.month}`, time:`${m.hour}:${m.minute}`}; }
+function hSpark(vals,thr,ts){ if(!vals.length) return '<span class="muted">sin muestras todavía</span>';
+  // Alto 160px, rejilla (25/50/75/100%), eje Y con % y eje X con horas reales.
+  const W=1000,H=160,step=W/Math.max(1,vals.length-1);
+  const y=v=>(H-(Math.min(100,v||0)/100)*H);
+  const pts=vals.map((v,i)=>`${(i*step).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const last=vals[vals.length-1];
+  const grid=[25,50,75,100].map(g=>`<line x1="0" y1="${y(g).toFixed(1)}" x2="${W}" y2="${y(g).toFixed(1)}" stroke="#ececec" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join('');
+  const gutter=[100,75,50,25,0].map(g=>`<span style="font-size:10px;color:#aaa;line-height:1">${g}%</span>`).join('');
+  // Eje X: ~5 marcas; la fecha solo se escribe cuando cambia el día.
+  let xaxis='';
+  if(ts&&ts.length){ const N=Math.min(5,ts.length); let lastDay=''; const labels=[];
+    for(let k=0;k<N;k++){ const idx=Math.round(k*(ts.length-1)/((N-1)||1)); const p=tsParts(ts[idx]);
+      labels.push(p.day!==lastDay?(p.dm+' '+p.time):p.time); lastDay=p.day; }
+    xaxis=`<div style="display:flex;justify-content:space-between;font-size:10px;color:#aaa;margin-top:3px">${labels.map(l=>`<span>${l}</span>`).join('')}</div>`; }
+  return `<div style="display:flex;gap:6px;margin-top:6px">
+    <div style="display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;height:160px;width:26px">${gutter}</div>
+    <div style="flex:1;min-width:0">
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:160px;display:block;overflow:visible">
+        ${grid}
+        <line x1="0" y1="${y(thr).toFixed(1)}" x2="${W}" y2="${y(thr).toFixed(1)}" stroke="#e74c3c" stroke-width="1.2" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/>
+        <polyline fill="none" stroke="#185FA5" stroke-width="1.6" points="${pts}" vector-effect="non-scaling-stroke"/>
+      </svg>
+      ${xaxis}
+      <div style="font-size:10px;color:#e74c3c;margin-top:2px">- - línea roja punteada = umbral ${thr}%</div>
+    </div></div>
+  <div style="text-align:right;color:${hColor(last,thr)};font-weight:700;margin-top:4px">Capacidad ahora: ${pct(last)}</div>`; }
+const HCARD='background:#fafafa;border:1px solid #eee;border-radius:8px;padding:10px 12px';
+const HK='font-size:12px;color:var(--text2);font-weight:700;letter-spacing:.5px;text-transform:uppercase';
+const HBIG='font-size:28px;font-weight:700;margin:2px 0';
+
+async function resetHealth(){
+  if(!confirm('¿Poner a cero las estadísticas (gráfica, pico, tiempos)?\n\nNO borra usuarios, conversaciones ni feedback — solo vacía las métricas para empezar una medición nueva.')) return;
+  try{
+    const r=await fetch('/api/admin/health/reset',{method:'POST',headers:{'Authorization':'Bearer '+token}});
+    if(!r.ok){ alert('No se pudo reiniciar (¿sesión de admin?).'); return; }
+    loadHealth(); if(typeof loadOrchTimes==='function') loadOrchTimes();
+  }catch(e){ alert('Error al reiniciar.'); }
+}
+
+async function restartServer(){
+  if(!confirm('¿Reiniciar el SERVIDOR?\n\nCorta el servicio unos segundos (vuelve solo). Hazlo solo si no hay nadie usándolo. NO borra datos.')) return;
+  try{
+    const r=await fetch('/api/admin/restart',{method:'POST',headers:{'Authorization':'Bearer '+token}});
+    if(!r.ok){ alert('No se pudo reiniciar (¿sesión de admin?).'); return; }
+    alert('Reiniciando… la página volverá a responder en unos segundos. Recárgala si hace falta.');
+  }catch(e){ alert('Petición enviada; el servidor se está reiniciando.'); }
+}
+
+async function rebootMachine(){
+  if(!confirm('¿Reiniciar la MÁQUINA entera (el droplet)?\n\nCorta PROD y PRE ~1 minuto (vuelven solos) y aplica las actualizaciones de kernel pendientes. Hazlo solo si no hay tráfico. NO borra datos.')) return;
+  const m=document.getElementById('prodMsg'); if(m){m.style.color='var(--text2)';m.textContent='Reiniciando la máquina… volverá en ~1-2 min.';}
+  try{
+    const r=await fetch('/api/admin/reboot',{method:'POST',headers:{'Authorization':'Bearer '+token}});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.ok){ if(m){m.style.color='#E8186E';m.textContent='✗ '+(d.error||'no se pudo (¿falta el permiso sudo en el servidor?)');} return; }
+    if(m)m.textContent='La máquina se está reiniciando. Recarga la página en ~1-2 min.';
+  }catch(e){ if(m)m.textContent='Orden enviada; la máquina se reinicia (recarga en ~1-2 min).'; }
+}
+
+async function loadHealth(){
+  const el=document.getElementById('healthPanel'); if(!el||!token) return;
+  try{
+    const [hr,hh]=await Promise.all([
+      fetch('/api/admin/health',{headers:{'Authorization':'Bearer '+token}}),
+      fetch('/api/admin/health/history?hours=24',{headers:{'Authorization':'Bearer '+token}})
+    ]);
+    if(!hr.ok){ el.innerHTML='<p class="muted">No disponible.</p>'; return; }
+    const d=await hr.json(); const hist=(hh.ok?(await hh.json()).items:[])||[];
+    el.innerHTML=renderHealth(d.sample, d.thresholds, d.peak, hist);
+  }catch(e){ el.innerHTML='<p class="muted">Error al cargar la salud.</p>'; }
+}
+
+function renderHealth(s,thr,peak,hist){
+  const llm=s.llm||{}, infra=s.infra||{};
+  const caps=hist.map(x=>x.capacity_pct||0);
+  const capsTs=hist.map(x=>x.created_at);
+  const cond = peak ? `RAM ${pct(peak.ram_pct)} · CPU ${pct(peak.cpu_pct)} · disco ${pct(peak.disk_used_pct)} · ${n(peak.inflight_orch)} orquestando · ${n(peak.inflight_requests)} peticiones` : '—';
+  return `
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px">
+    <div style="${HCARD}"><div style="${HK}">Capacidad</div><div style="${HBIG};color:${hColor(s.capacity_pct,thr.capacity_pct)}">${pct(s.capacity_pct)}</div><div class="muted">cuello: ${s.worst||'—'}</div>${hBar(s.capacity_pct,thr.capacity_pct)}</div>
+    <div style="${HCARD}"><div style="${HK}">RAM</div><div style="${HBIG};color:${hColor(s.ram_pct,thr.ram_pct)}">${pct(s.ram_pct)}</div><div class="muted">${s.has_psutil?'medida en vivo':(s.ram_pct!=null?'medida vía sistema · %CPU requiere psutil':'sin medir (falta psutil)')}</div>${hBar(s.ram_pct,thr.ram_pct)}</div>
+    <div style="${HCARD}"><div style="${HK}">Disco ocupado</div><div style="${HBIG};color:${hColor(s.disk_used_pct,thr.disk_used_pct)}">${pct(s.disk_used_pct)}</div><div class="muted">libre ${pct(s.disk_free_pct)} · rojo >75% ocupado</div>${hBar(s.disk_used_pct,thr.disk_used_pct)}</div>
+    <div style="${HCARD}"><div style="${HK}">En vuelo</div><div style="${HBIG}">${n(s.inflight_orch)}</div><div class="muted">orquestando (pico ${n(s.peak_orch)})</div><div class="row"><span class="k">Peticiones</span><span class="v">${n(s.inflight_requests)} (pico ${n(s.peak_requests)})</span></div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:12px">
+    <div style="${HCARD}"><div style="${HK}">🔝 Pico de capacidad</div><div style="${HBIG};color:${hColor(peak&&peak.capacity_pct,thr.capacity_pct)}">${peak?pct(peak.capacity_pct):'—'}</div><div class="muted">${peak?fmt(peak.created_at):'sin datos aún'}</div><div class="muted" style="margin-top:4px">${cond}</div></div>
+    <div style="${HCARD}"><div style="${HK}">Salud LLM</div><div class="row"><span class="k">OK</span><span class="v">${n(llm.ok)}</span></div><div class="row"><span class="k">Timeouts</span><span class="v">${n(llm.timeout)}</span></div><div class="row"><span class="k">Errores / 429</span><span class="v">${n(llm.error)} / ${n(llm.rate_limited)}</span></div><div class="row"><span class="k">% fallo</span><span class="v" style="color:${hColor(llm.fail_pct,20)}">${llm.fail_pct!=null?llm.fail_pct+'%':'—'}</span></div></div>
+    <div style="${HCARD}"><div style="${HK}">Infraestructura</div><div class="row"><span class="k">TLS caduca en</span><span class="v">${infra.tls_days_left!=null?infra.tls_days_left+' días':'—'}</span></div><div class="row"><span class="k">Último backup</span><span class="v">${infra.backup_age_hours!=null?infra.backup_age_hours+' h':'—'}</span></div><div class="row"><span class="k">Errores 5xx</span><span class="v">${n(s.http_5xx)}</span></div></div>
+  </div>
+  <div style="margin-top:14px"><div style="${HK}">Capacidad — últimas 24 h (${caps.length} muestras) · horas en Madrid</div>${hSpark(caps,thr.capacity_pct,capsTs)}</div>`;
+}
+
+/* ── Configuración de planes (FASE 27): tabla editable de máximos por plan ── */
+async function loadPlanLimits(){
+  const cont=document.getElementById('planLimits'); if(!cont)return;
+  const r=await api('GET','/api/admin/plan-limits');
+  if(!r.ok){ cont.innerHTML='<p class="muted">No se pudo cargar.</p>'; return; }
+  const d=await r.json(); const L=d.limits||{}; const order=d.order||['free','basic','premium']; const fields=d.fields||[];
+  const head='<tr><th>Variable</th>'+order.map(p=>'<th style="text-transform:capitalize">'+esc(p)+'</th>').join('')+'</tr>';
+  const rows=fields.map(f=>{
+    const cells=order.map(p=>{
+      const v=(L[p]||{})[f.key];
+      if(f.type==='bool') return '<td><input type="checkbox" data-p="'+p+'" data-k="'+f.key+'" '+(v?'checked':'')+'></td>';
+      return '<td><input type="number" min="0" data-p="'+p+'" data-k="'+f.key+'" value="'+(v==null?0:v)+'" style="width:64px"></td>';
+    }).join('');
+    return '<tr><td>'+esc(f.label)+'</td>'+cells+'</tr>';
+  }).join('');
+  cont.innerHTML='<table><thead>'+head+'</thead><tbody>'+rows+'</tbody></table>'+
+    '<button class="abtn" style="margin-top:10px" data-tip="Guardar los máximos de cada plan" onclick="savePlanLimits()">Guardar planes</button>';
+}
+async function savePlanLimits(){
+  const limits={};
+  document.querySelectorAll('#planLimits input').forEach(inp=>{
+    const p=inp.dataset.p, k=inp.dataset.k;
+    (limits[p]=limits[p]||{})[k] = (inp.type==='checkbox') ? inp.checked : Number(inp.value);
+  });
+  const r=await api('POST','/api/admin/plan-limits', limits);
+  toast(r.ok ? 'Planes guardados' : 'Error al guardar');
+}
+
+/* ── Configuración de la aplicación (FASE 27): ajustes de sistema, solo admin ── */
+const APP_FIELDS=[
+  ['orchestrate_llm_timeout','Timeout por bot (s)','Cuánto se espera a cada IA antes de pasar de turno'],
+  ['orchestrate_bot_delay','Delay entre bots (s)','Pausa entre una IA y la siguiente'],
+  ['orchestrate_max_seconds','Presupuesto de tiempo (s)','Tope de duración de una conversación. Con la orquestación asíncrona ya no es por el 504 de la web, es un freno de coste/desbocado.'],
+  ['orchestrate_context_limit','Contexto: mensajes recientes (1–9)','Cuántos mensajes recientes ven las IAs (1 a 9). NO es la longitud de las respuestas — eso es "Máx. tokens", que ajusta cada usuario.'],
+  ['moderator_pause_seconds','Pausa del moderador (s)','Si una IA te pregunta, espera este tiempo a que respondas'],
+];
+async function loadAppConfig(){
+  const cont=document.getElementById('appConfig'); if(!cont)return;
+  const r=await api('GET','/api/settings'); if(!r.ok){cont.innerHTML='<p class="muted">No se pudo cargar.</p>';return;}
+  const s=(await r.json()).settings||{};
+  const rows=APP_FIELDS.map(f=>'<div class="row"><span class="k" data-tip="'+esc(f[2])+'">'+esc(f[1])+'</span>'+
+    '<input type="number" id="ac_'+f[0]+'" value="'+(s[f[0]]!=null?s[f[0]]:'')+'" style="width:80px;text-align:center"></div>').join('');
+  const prof=(s.bots_config||'').includes('openrouter')?'openrouter':'opencode';
+  cont.innerHTML=rows+
+    '<div style="margin-top:14px"><div class="muted" style="margin-bottom:6px">Modelos por defecto (perfil global)</div>'+
+    '<button class="abtn'+(prof==='opencode'?' sel':'')+'" data-tip="OpenCode Go · tarifa plana" onclick="setProfile(\'opencode\')">Económico</button> '+
+    '<button class="abtn'+(prof==='openrouter'?' sel':'')+'" data-tip="OpenRouter · de pago por token" onclick="setProfile(\'openrouter\')">Premium</button></div>'+
+    '<button class="abtn" style="margin-top:14px" data-tip="Guardar los ajustes de sistema" onclick="saveAppConfig()">Guardar configuración</button>';
+}
+async function saveAppConfig(){
+  const body={};
+  APP_FIELDS.forEach(f=>{const v=document.getElementById('ac_'+f[0]).value; if(v!=='')body[f[0]]=v;});
+  const r=await api('POST','/api/settings',body);
+  if(r.ok){ toast('Configuración guardada'); }
+  else { const e=await r.json().catch(()=>({})); toast('Error: '+(e.detail||r.status)); }
+}
+async function setProfile(name){
+  const r=await api('POST','/api/settings/profile?profile='+name);
+  toast(r.ok?'Perfil aplicado':'Error al aplicar perfil'); loadAppConfig();
+}
+
+/* ── Tiempos de orquestación (FASE 26) ── */
+function _sec(x){ return (x===null||x===undefined)?'—':(x/1000).toFixed(1)+'s'; }
+async function loadOrchTimes(){
+  const cont=document.getElementById('orchTimes'); if(!cont)return;
+  const r=await api('GET','/api/admin/orch-times?limit=100');
+  if(!r.ok){ cont.innerHTML='<p class="muted">No se pudieron cargar.</p>'; return; }
+  const d=await r.json(); const items=d.items||[]; const a=d.avg||{};
+  const rows=items.map(o=>`<tr>
+    <td>${fmt(o.created_at)}</td>
+    <td>${o.thread_id?esc(String(o.thread_id)).replace(/^user_\d+_/,''):'—'}</td>
+    <td>${n(o.rounds)}×${n(o.bots)}</td>
+    <td><b>${_sec(o.wall_ms)}</b></td><td>${_sec(o.llm_ms)}</td><td>${_sec(o.lock_ms)}</td>
+    <td>${_sec(o.delays_ms)}</td><td>${_sec(o.overhead_ms)}</td><td>${nf(o.total_tokens)}</td></tr>`).join('');
+  cont.innerHTML =
+    '<div class="muted" style="margin-bottom:8px">Media de '+n(a.n)+' orquestaciones — A wall <b>'+_sec(a.wall)+
+    '</b> · B LLM '+_sec(a.llm)+' · C lock '+_sec(a.lock)+' · D delays '+_sec(a.delays)+' · E over '+_sec(a.overhead)+'</div>'+
+    '<table><thead><tr><th>Fecha</th><th>Hilo</th><th>R×B</th><th>A wall</th><th>B LLM</th><th>C lock</th><th>D delays</th><th>E over</th><th>Tokens</th></tr></thead>'+
+    '<tbody>'+(rows||'<tr><td colspan="9" class="muted">Sin datos aún</td></tr>')+'</tbody></table>';
+}
+
+/* ── FASE 20.7.1: comentarios de texto dejados en conversaciones (solo lectura) ── */
+async function loadComments(){
+  const cont=document.getElementById('convComments'); if(!cont)return;
+  const r=await api('GET','/api/admin/feedback/comments?limit=100');
+  if(!r.ok){ cont.innerHTML='<p class="muted">No se pudieron cargar.</p>'; return; }
+  const d=await r.json(); const items=d.comments||[];
+  const rows=items.map(c=>{
+    const hilo=c.conversacion?esc(String(c.conversacion)).replace(/^user_\d+_/,''):'—';
+    const conv=c.url_publica?('<a href="'+esc(c.url_publica)+'" target="_blank" rel="noopener">'+hilo+'</a>'):hilo;
+    const quien=c.usuario?esc(c.usuario):'<span class="muted">anónimo</span>';
+    const pulgar=c.pulgar==='up'?'👍':(c.pulgar==='down'?'👎':'—');
+    return '<tr><td>'+fmt(c.fecha)+'</td><td>'+conv+'</td><td>'+quien+'</td><td>'+esc(c.comentario||'')+'</td><td style="text-align:center">'+pulgar+'</td></tr>';
+  }).join('');
+  cont.innerHTML = rows
+    ? '<table><thead><tr><th>Fecha/hora</th><th>Conversación</th><th>Usuario</th><th>Comentario</th><th>Pulgar</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    : '<p class="muted">Aún no hay comentarios.</p>';
+}
+
+/* ── Helper de llamadas autenticadas ── */
+async function api(method, url, body){
+  const opt = {method, headers:{'Authorization':'Bearer '+token}};
+  if(body){ opt.headers['Content-Type']='application/json'; opt.body=JSON.stringify(body); }
+  const r = await fetch(url, opt);
+  return r;
+}
+function toast(m){
+  let t=document.getElementById('toast');
+  if(!t){ t=document.createElement('div'); t.id='toast'; t.className='toast'; document.body.appendChild(t); }
+  t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800);
+}
+
+/* ── FASE 28: copia de seguridad de la BD ── */
+async function doBackup(){
+  const el=document.getElementById('backupResult');
+  if(el) el.textContent='Creando copia…';
+  try{
+    const r=await api('POST','/api/admin/backup');
+    if(!r.ok){ if(el) el.textContent='✗ Error al hacer backup ('+r.status+')'; return; }
+    const d=await r.json();
+    if(el) el.textContent='✓ '+d.file+' · '+Math.round((d.bytes||0)/1024)+' KB';
+    toast('Copia de seguridad creada');
+  }catch(e){ if(el) el.textContent='✗ Error de conexión'; }
+}
+
+/* ── Monitor de arranques ── */
+let startupsOpen=false;
+async function toggleStartups(){
+  const h=document.getElementById('startupHist');
+  if(!h) return;
+  startupsOpen=!startupsOpen;
+  if(!startupsOpen){ h.innerHTML=''; return; }
+  h.innerHTML='<p class="muted">Cargando…</p>';
+  const r=await api('GET','/api/admin/startups?limit=50');
+  if(!r.ok){ h.innerHTML='<p class="muted">No se pudo cargar.</p>'; return; }
+  const list=(await r.json()).startups||[];
+  let rapid=0;
+  let rows=list.map((s,i)=>{
+    let gap='';
+    if(i<list.length-1){
+      const dt=(new Date(s.started_at)-new Date(list[i+1].started_at))/1000;
+      if(dt>0 && dt<300){ rapid++; gap=' <span style="color:#e67e22;font-weight:600">(+'+humanGap(dt)+' tras el anterior ⚠ reinicio rápido)</span>'; }
+      else if(dt>0){ gap=' <span class="muted">(+'+humanGap(dt)+' tras el anterior)</span>'; }
+    }
+    return '<div class="row"><span class="k">'+fmt(s.started_at)+'</span><span class="v">'+esc(s.env||'')+gap+'</span></div>';
+  }).join('');
+  const summary='<div class="muted" style="margin-bottom:6px">'+list.length+' arranques registrados'+(rapid?' · <span style="color:#e67e22;font-weight:600">'+rapid+' reinicio(s) rápido(s) (&lt;5 min)</span> — normal si fue un deploy (a veces deploy + rollback); sospechoso solo si nadie estaba desplegando':' · sin reinicios rápidos ✓')+'</div>';
+  h.innerHTML = '<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">'+summary+(rows||'<p class="muted">Sin arranques registrados</p>')+'</div>';
+}
+function humanGap(sec){
+  if(sec<60) return Math.round(sec)+'s';
+  if(sec<3600) return Math.round(sec/60)+'min';
+  if(sec<86400) return (sec/3600).toFixed(1)+'h';
+  return (sec/86400).toFixed(1)+'d';
+}
+
+/* ── Gestión de usuarios ── */
+let searchTimer=null;
+function onSearch(){ clearTimeout(searchTimer); searchTimer=setTimeout(loadUsers,300); }
+
+async function loadUsers(){
+  const cont=document.getElementById('usersTable');
+  if(!cont) return;
+  const q=encodeURIComponent((document.getElementById('uSearch')||{}).value||'');
+  const r=await api('GET','/api/admin/users?limit=100&q='+q);
+  if(!r.ok){ cont.innerHTML='<p class="muted">No se pudieron cargar.</p>'; return; }
+  const data=await r.json();
+  const rows=(data.users||[]).map(renderUserRow).join('');
+  cont.innerHTML =
+    '<table><thead><tr><th>Email</th><th>Plan</th><th>Estado</th><th>Verif.</th><th>Debates/mes</th><th>Acciones</th></tr></thead>'+
+    '<tbody>'+(rows||'<tr><td colspan="6" class="muted">Sin usuarios</td></tr>')+'</tbody></table>'+
+    '<div class="muted" style="margin-top:8px">'+(data.total||0)+' usuario(s).</div>';
+}
+
+function renderUserRow(u){
+  const planSel = ['free','basic','premium'].map(p=>`<option value="${p}" ${u.plan===p?'selected':''}>${p}</option>`).join('');
+  const banBtn = u.status==='suspended'
+    ? `<button class="abtn" data-tip="Reactivar la cuenta: vuelve a poder entrar" onclick="act(${u.user_id},'status','active')">Reactivar</button>`
+    : `<button class="abtn danger" data-tip="Bloquear la cuenta y cerrar todas sus sesiones" onclick="act(${u.user_id},'status','suspended')">Banear</button>`;
+  return `<tr id="u-${u.user_id}">
+    <td class="clk" data-tip="Ver ficha: uso histórico y feedback" onclick="ficha(${u.user_id})">${esc(u.email)}<div style="font-size:11px;color:var(--text2);margin-top:2px">Alta: ${fmt(u.created_at)}</div></td>
+    <td><select class="plansel" data-tip="Cambiar el plan del usuario" onchange="act(${u.user_id},'plan',this.value)">${planSel}</select></td>
+    <td><span class="pill ${u.status}">${esc(u.status)}</span></td>
+    <td>${u.email_verified?'<span class="ok">✓</span>':'<span class="no">✗</span>'}</td>
+    <td>${n(u.debates_month)}</td>
+    <td><div class="acts">
+      <span class="pack">
+        <button class="abtn" data-tip="Poner a 0 su consumo de este mes" onclick="act(${u.user_id},'reset-usage')">Reset uso</button>
+        <button class="abtn" data-tip="Marcar su email como verificado a mano" onclick="act(${u.user_id},'verify-email')">Verificar</button>
+        <button class="abtn" data-tip="Enviarle un email para que cambie su contraseña" onclick="act(${u.user_id},'send-reset')">Reset pass</button>
+      </span>
+      <span class="pack danger-pack">
+        ${banBtn}
+        <button class="abtn danger" data-tip="Borrar la cuenta y todos sus datos (RGPD). No se puede deshacer." onclick="delUser(${u.user_id},'${esc(u.email)}')">Borrar</button>
+      </span>
+    </div></td></tr>`;
+}
+
+/* Acciones POST: plan/status llevan body; el resto son POST simples */
+async function act(uid, action, value){
+  let url='/api/admin/users/'+uid+'/'+action, body=null;
+  if(action==='plan'){ body={plan:value}; }
+  else if(action==='status'){
+    if(value==='suspended' && !confirm('¿Banear a este usuario? Se cerrarán todas sus sesiones.')) return;
+    body={status:value};
+  }
+  const r=await api('POST',url,body);
+  if(r.ok){ toast('Hecho'); loadUsers(); }
+  else { const e=await r.json().catch(()=>({})); toast('Error: '+(e.detail||r.status)); }
+}
+
+async function delUser(uid, email){
+  if(!confirm('¿BORRAR la cuenta '+email+'?\nEsto elimina al usuario y sus datos (RGPD). No se puede deshacer.')) return;
+  const r=await api('DELETE','/api/admin/users/'+uid);
+  if(r.ok){ toast('Cuenta borrada'); loadUsers(); }
+  else { toast('Error al borrar'); }
+}
+
+/* Ficha desplegable: uso histórico + feedback */
+async function ficha(uid){
+  const row=document.getElementById('u-'+uid);
+  const existing=document.getElementById('ficha-'+uid);
+  if(existing){ existing.parentElement.parentElement.remove(); return; }
+  const r=await api('GET','/api/admin/users/'+uid);
+  if(!r.ok) return;
+  const u=await r.json();
+  const hist=(u.usage_history||[]).map(h=>`<div class="row"><span class="k">${h.month}</span><span class="v">${h.debates} deb · ${(h.est_cost_eur||0).toFixed(3)}€ · ${nf(h.total_tokens)} tok</span></div>`).join('')||'<span class="muted">Sin uso</span>';
+  const fb=(u.feedback||[]).slice(0,10).map(f=>`<div class="row"><span class="k">${fmt(f.created_at)} ${esc(f.vote||f.kind||'')}</span><span class="v">${esc((f.comment||'').slice(0,60))}</span></div>`).join('')||'<span class="muted">Sin feedback</span>';
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td colspan="6"><div class="ficha" id="ficha-${uid}">
+    <b>Alta:</b> ${fmt(u.created_at)} · <b>Último login:</b> ${fmt(u.last_login)}<br>
+    <div style="margin-top:8px"><b>Uso histórico</b>${hist}</div>
+    <div style="margin-top:8px"><b>Feedback</b>${fb}</div></div></td>`;
+  row.after(tr);
+}
+
+load();
+</script>
+</body>
+</html>
