@@ -1,0 +1,41 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run unit tests
+        run: |
+          python -m pytest execution/tests/ -v \
+            --ignore=execution/tests/test_frontend_js.py \
+            --ignore=execution/tests/test_lm_studio.py \
+            --ignore=execution/tests/test_benchmark.py \
+            --ignore=execution/tests/test_concurrency.py \
+            --ignore=execution/tests/test_integration.py \
+            --ignore=execution/tests/test_recovery_daemon.py \
+            --tb=short
+
+      - name: Run security tests
+        run: |
+          python -m pytest execution/tests/test_security.py -v --tb=short

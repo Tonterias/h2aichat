@@ -10,6 +10,15 @@ There's evidence that simulated debate between opposing perspectives **improves 
 - **On your machine, if you want.** Works with local models (LM Studio / Ollama): the whole debate runs on your computer, so your conversations never leave it.
 - **You're in charge.** You moderate, step in, pause, and decide who speaks.
 
+## See it in action
+
+Two example debates between several AIs (rendered live on h2aichat.com):
+
+- [Can an AI be conscious?](https://h2aichat.com/conversations/en/h2aichat_user_1_ArtificialConsciousness_2026-06-19_224813.html)
+- [The future of humanity and AI](https://h2aichat.com/conversations/en/h2aichat_FutureHAi1_EN_2026-07-05_150813.html)
+
+Their full source is also in `conversations/en/` in this repo.
+
 ## Quick start
 
 ```bash
