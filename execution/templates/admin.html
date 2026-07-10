@@ -182,7 +182,7 @@ function render(d){
 
 /* ── FASE 30: control de PRE-PROD (staging) ── */
 async function loadStaging(){
-  const el=document.getElementById('stagingPanel'); if(!el||!token) return;
+  const el=document.getElementById('stagingPanel'); if(!el) return;
   try{
     const r=await fetch('/api/admin/staging/status',{headers:{'Authorization':'Bearer '+token}});
     if(!r.ok){ el.innerHTML='<p class="muted">No disponible.</p>'; return; }
@@ -222,9 +222,9 @@ function fmt(s){ if(!s||s==='0')return '—'; const m=toMadrid(s);
   return m ? `${m.day}/${m.month}/${m.year} ${m.hour}:${m.minute}` : String(s).replace('T',' ').slice(0,16); }
 
 /* ── FASE 32: editor del catálogo de IAs ── */
-let _catProviders=['cloud','openrouter'], _catRoles=['creativo','estratega','analista'];
+let _catProviders=['cloud','openrouter','local'], _catRoles=['creativo','estratega','analista'];
 async function loadCatalog(){
-  const box=document.getElementById('catalogBox'); if(!box||!token) return;
+  const box=document.getElementById('catalogBox'); if(!box) return;
   try{
     const r=await fetch('/api/admin/catalog',{headers:{'Authorization':'Bearer '+token}});
     if(!r.ok){ box.innerHTML='<p class="muted">No disponible.</p>'; return; }
@@ -362,7 +362,7 @@ async function rebootMachine(){
 }
 
 async function loadHealth(){
-  const el=document.getElementById('healthPanel'); if(!el||!token) return;
+  const el=document.getElementById('healthPanel'); if(!el) return;
   try{
     const [hr,hh]=await Promise.all([
       fetch('/api/admin/health',{headers:{'Authorization':'Bearer '+token}}),

@@ -1764,7 +1764,7 @@ def assert_no_free_models(bots_config: dict) -> None:
 
 
 # ── FASE 32: editor del catálogo de IAs en /admin ───────────────────────────
-CATALOG_PROVIDERS = ("cloud", "openrouter")
+CATALOG_PROVIDERS = ("cloud", "openrouter", "local")  # FASE 40.2: 'local' = tu servidor (LM Studio/Ollama)
 CATALOG_TOKENS_RANGE = (64, 4000)
 CATALOG_ROLES = ("creativo", "estratega", "analista")
 # OpenRouter tiene ~300 modelos y cobra por token -> lista CURADA (vetados). OpenCode
