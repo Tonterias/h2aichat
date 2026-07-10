@@ -10,23 +10,31 @@ The first time you send a code contribution, an assistant will ask you to **acce
 
 ## Getting the project running
 
+Requires **Python 3.11+** (our CI runs on **3.13**). Work inside a **virtual environment** so you don't disturb your global packages:
+
 ```bash
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt   # runtime + test tools
 python -m unittest discover -s execution/tests -v   # run the tests
 python -m uvicorn execution.api_server:app --port 8000   # start the app
 ```
 
+Prefer Docker or a 100%-local setup with your own models? See [`docs/RUN_LOCALLY.md`](docs/RUN_LOCALLY.md).
+
 ## Contribution flow
 
 1. Open an **issue** first for large changes (so we can discuss it before you invest time).
 2. **Fork** the repo and create a **branch** for your change.
-3. **Add or adjust tests** where it makes sense; keep the suite green.
+3. **Add or adjust tests** where it makes sense; keep the suite green (a GitHub Action runs the full suite automatically on every PR).
 4. Open a **Pull Request** describing the what and the why.
 5. Accept the CLA if it's your first time.
 
 ## Style
 
 - Small, focused changes; one PR, one thing.
+- **Commit messages:** we follow [Conventional Commits](https://www.conventionalcommits.org) — e.g. `feat: add X`, `fix: correct Y`, `docs: …`. It keeps the history readable.
+- We don't enforce a code formatter or linter yet — just **match the style of the surrounding code**.
 - Be kind in reviews (see `CODE_OF_CONDUCT.md`).
 
 ## Security
