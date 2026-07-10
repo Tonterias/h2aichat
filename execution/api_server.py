@@ -459,9 +459,14 @@ async def security_middleware(request, call_next):
     if auth_header.startswith("Bearer "):
         payload = auth.decode_token(engine, auth_header[7:])
         if payload is None:
-            return JSONResponse(status_code=401, content={"error": "Token invalido, expirado o revocado"})
-        user = {"user_id": int(payload["sub"]), "email": payload.get("email", ""),
-                "name": payload.get("name", ""), "plan": payload.get("plan", "free")}
+            # FASE 40.2: en self-host local (HUMANIA_LOCAL=1) un token viejo/inválido NO
+            # bloquea: se ignora y se trata como usuario local (evita quedar atrapado en el
+            # login si el navegador guardó un token de otra sesión). staging/PROD sí cortan.
+            if os.environ.get("HUMANIA_LOCAL") != "1":
+                return JSONResponse(status_code=401, content={"error": "Token invalido, expirado o revocado"})
+        else:
+            user = {"user_id": int(payload["sub"]), "email": payload.get("email", ""),
+                    "name": payload.get("name", ""), "plan": payload.get("plan", "free")}
 
     master_ok = request.headers.get("X-Humania-Token") == SECRET_TOKEN
     if protected and not is_local and user is None and not master_ok:
