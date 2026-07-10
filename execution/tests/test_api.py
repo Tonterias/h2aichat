@@ -102,7 +102,7 @@ class TestWebLegal(unittest.TestCase):
 
     def test_email_contacto_privacidad_publicado(self):
         resp = self.client.get("/web")
-        self.assertIn("contact@h2aichat.com", resp.text)  # decision D4 del PO
+        self.assertIn("h2aichat.com@gmail.com", resp.text)  # correo oficial de contacto (PO 2026-07-10; antes contact@h2aichat.com)
 
 
 class TestConversationVotes(unittest.TestCase):
