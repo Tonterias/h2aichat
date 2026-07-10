@@ -31,8 +31,8 @@ To run it **100% on your machine** with your own models (nothing leaves your com
 
 ```bash
 docker compose up -d
-docker compose exec ollama ollama pull llama3.1
-# open http://localhost:8000
+docker compose exec ollama ollama pull llama3.2
+# open http://localhost:8000  ->  ready to debate: it ships with a "Local" agent
 ```
 
 Full guide (Docker or LM Studio / Ollama, plus an honest privacy note): `docs/RUN_LOCALLY.md`. Put your keys in `.env` (see `.env.example`); never commit real keys.
