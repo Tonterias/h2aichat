@@ -29,7 +29,7 @@ We provide security support for the **latest released version**. As a young proj
 
 ## Automated checks
 
-Our CI runs **`pip-audit`** against our Python dependencies, and **Dependabot** proposes updates, so known-vulnerable packages get flagged automatically.
+Our CI runs **`pip-audit`** against our Python dependencies, so known-vulnerable packages get flagged automatically.
 
 ## Good practices when deploying
 
