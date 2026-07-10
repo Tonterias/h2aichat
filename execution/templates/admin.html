@@ -61,9 +61,10 @@ function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':
 
 async function load(){
   const c = document.getElementById('content');
-  if(!token){ c.innerHTML = noauth('Inicia sesión como administrador para ver el panel.'); return; }
+  // FASE 40.2: no exigimos token de entrada. En self-host local el backend responde como
+  // usuario local (200) sin login; en staging/PROD devolverá 401/403 y caemos al aviso.
   try{
-    const r = await fetch('/api/admin/stats', {headers:{'Authorization':'Bearer '+token}});
+    const r = await fetch('/api/admin/stats', token?{headers:{'Authorization':'Bearer '+token}}:{});
     if(r.status===401){ localStorage.removeItem('h2ai_token'); c.innerHTML = noauth('Tu sesión ha caducado. Vuelve a iniciar sesión.'); return; }
     if(r.status===403){ c.innerHTML = noauth('Esta cuenta no es de administración. Inicia sesión con la cuenta de admin.'); return; }
     if(!r.ok){ c.innerHTML = '<div class="msg">No se pudo cargar el panel.</div>'; return; }

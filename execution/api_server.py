@@ -560,7 +560,11 @@ ADMIN_EMAIL = os.environ.get("HUMANIA_ADMIN_EMAIL", "contact@h2aichat.com").stri
 
 
 def _is_admin(request: Request) -> bool:
-    """Admin = email administrador, token maestro o dev/local (ambos = DEV_USER)."""
+    """Admin = email administrador, token maestro o dev/local (ambos = DEV_USER).
+    FASE 40.2: en self-host local (HUMANIA_LOCAL=1) el único usuario es el admin de su
+    propia instancia -> siempre admin. staging/PROD no ponen la variable."""
+    if os.environ.get("HUMANIA_LOCAL") == "1":
+        return True
     user = getattr(request.state, "user", None) or {}
     email = (user.get("email") or "").strip().lower()
     return email == ADMIN_EMAIL or email == auth.DEV_USER["email"]
@@ -573,10 +577,12 @@ def _require_admin(request: Request):
 
 @app.get("/api/admin/stats")
 def admin_stats_endpoint(request: Request):
-    """Panel /admin: solo accesible logueado como el email administrador."""
-    user = getattr(request.state, "user", None)
-    if not user or (user.get("email") or "").strip().lower() != ADMIN_EMAIL:
-        raise HTTPException(status_code=403, detail="Acceso solo para administración")
+    """Panel /admin: solo el email administrador. FASE 40.2: en self-host local
+    (HUMANIA_LOCAL=1) el único usuario es el admin de su instancia -> se permite."""
+    if os.environ.get("HUMANIA_LOCAL") != "1":
+        user = getattr(request.state, "user", None)
+        if not user or (user.get("email") or "").strip().lower() != ADMIN_EMAIL:
+            raise HTTPException(status_code=403, detail="Acceso solo para administración")
     return auth.admin_stats(engine)
 
 

@@ -1,0 +1,14 @@
+# FASE 40.2: no meter en la imagen bytecode viejo (Python cargaría el .pyc obsoleto en vez
+# del .py nuevo) ni el historial de git ni secretos/estado local.
+__pycache__/
+*.py[cod]
+*.egg-info/
+.git/
+.gitignore
+.env
+auth.json
+**/auth.json
+memory/*.db
+memory/.locks/
+*.log
+.DS_Store
