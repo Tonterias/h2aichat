@@ -4,10 +4,12 @@
 
 | Requirement | Version | Notes |
 |:---|:---|:---|
-| Python | 3.10+ | Check with `python --version` |
-| pip | 21.0+ | Included with Python 3.10+ |
+| Python | 3.11+ | 3.13 in CI. Check with `python --version` |
+| pip | 21.0+ | Included with Python 3.11+ |
 | git | 2.30+ | To clone the repository |
 | LM Studio or Ollama | latest | Optional, for running models locally |
+
+> **In a hurry? One command with Docker.** If you have Docker, you can bring up the app **and** a local model server (Ollama) together, with nothing else to install: see [`RUN_LOCALLY.md`](RUN_LOCALLY.md). The manual, from-source steps below are the alternative.
 
 ---
 
@@ -22,9 +24,14 @@ cd h2aichat
 
 ### 2. Install dependencies
 
+Work inside a **virtual environment** so you don't touch your global Python packages:
+
 ```bash
-pip install -r requirements.txt        # runtime (starts the server)
-pip install -r requirements-dev.txt    # + tests (pytest/playwright/pip-audit)
+python -m venv .venv
+source .venv/bin/activate              # Windows (PowerShell): .venv\Scripts\Activate.ps1
+
+pip install -r requirements.txt        # runtime (just to start the server)
+pip install -r requirements-dev.txt    # everything above + test/dev tools
 ```
 
 Dependency **versions are pinned** in `requirements.txt` so everyone installs the same thing (reproducibility). SQLite is part of Python's standard library (no extra install needed).
@@ -47,7 +54,7 @@ export OPENCODE_API_KEY="your-api-key"
 
 **Option B: an `auth.json` file**
 
-Create `~/.local/share/opencode/auth.json`:
+Create `~/.local/share/opencode/auth.json` — on **Windows** the same path lives under your user folder: `%USERPROFILE%\.local\share\opencode\auth.json`:
 
 ```json
 {
@@ -110,6 +117,8 @@ To run the whole debate on your own machine, with **no data leaving it**:
 ```bash
 python -m unittest discover -s execution/tests -v
 ```
+
+The tests are plain `unittest`, so no extra runner is required. (Our CI runs the same suite with `pytest` — either works.)
 
 ---
 
