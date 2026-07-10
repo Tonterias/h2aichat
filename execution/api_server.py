@@ -444,7 +444,10 @@ _rate_store = defaultdict(list)
 @app.middleware("http")
 async def security_middleware(request, call_next):
     client_ip = request.client.host if request.client else "testclient"
-    is_local = client_ip in ("127.0.0.1", "::1", "localhost", "testclient")
+    # FASE 40.2: modo self-host "100% local" (docker-compose fija HUMANIA_LOCAL=1). En una
+    # instancia en tu propia máquina, un solo usuario, no hace falta login: se trata como
+    # local (admin, sin auth). staging/PROD NO ponen esa variable, así que no les afecta.
+    is_local = client_ip in ("127.0.0.1", "::1", "localhost", "testclient") or os.environ.get("HUMANIA_LOCAL") == "1"
     protected = any(request.url.path.startswith(p) for p in ("/api/", "/orchestrate", "/turn/", "/message/", "/messages/")) and request.url.path != "/api/feedback"  # /api/feedback es publico: permite feedback anonimo (C)
 
     # FASE 20.1 (hallazgo UAT PO 2026-06-12): el JWT del usuario se valida ANTES que el
@@ -995,7 +998,7 @@ LOGIN_MAX_ATTEMPTS = 5  # intentos fallidos por IP y hora (plan 20.2g)
 
 def _login_rate_limited(request: Request) -> bool:
     client_ip = request.client.host if request.client else "testclient"
-    is_local = client_ip in ("127.0.0.1", "::1", "localhost", "testclient")
+    is_local = client_ip in ("127.0.0.1", "::1", "localhost", "testclient") or os.environ.get("HUMANIA_LOCAL") == "1"
     if is_local and not auth.auth_enforced():
         return False
     now = _time.time()

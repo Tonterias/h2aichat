@@ -21,6 +21,8 @@ services:
       - "8000:8000"
     environment:
       HUMANIA_ENV: dev
+      # Self-host de un solo usuario en tu máquina: sin login (se trata como local/admin).
+      HUMANIA_LOCAL: "1"
       # La app apunta al servicio ollama de este compose (compatible con OpenAI).
       LOCAL_SERVER_URL: http://ollama:11434/v1
     depends_on:
