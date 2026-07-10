@@ -1,0 +1,31 @@
+# H2AI Chat — "todo en uno" 100% LOCAL (FASE 40.2).
+# Levanta la app + un servidor de modelos Ollama, ya conectados entre sí.
+#
+#   docker compose up -d                       # arranca todo
+#   docker compose exec ollama ollama pull llama3.1   # baja un modelo (una vez)
+#   # abre http://localhost:8000  ->  en /admin, los agentes "local" usan Ollama
+#
+# Nada sale de tu máquina: el debate corre entre tus modelos, en tu equipo.
+services:
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      HUMANIA_ENV: dev
+      # La app apunta al servicio ollama de este compose (compatible con OpenAI).
+      LOCAL_SERVER_URL: http://ollama:11434/v1
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  ollama_data:

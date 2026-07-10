@@ -529,15 +529,27 @@ function aiAvatar(id,c,size,opts){
   return `<span class="ai-avatar" style="${dim};background:${c.bg};color:${c.fg};border:${bw}px solid ${c.fg}">${(opts.name||id||'?')[0].toUpperCase()}</span>`;
 }
 
+/* FASE 40.1 (T5): distintivo nube/local — de un vistazo, por dónde salen los datos del agente. */
+function providerBadge(provider){
+  const local = provider === 'local';
+  const title = local ? t('agent.runs_local') : t('agent.runs_cloud');
+  const color = local ? '#2D6A4F' : '#8A8288';
+  const icon = local
+    ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>'
+    : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 2A3.5 3.5 0 0 0 6.5 19z"/></svg>';
+  return `<span class="prov-badge" title="${title}" style="color:${color};display:inline-flex;align-items:center;margin-left:5px;vertical-align:middle">${icon}</span>`;
+}
+
 function renderAgentRow(p,isMod){
   const c=senderColors[p.id]||PALETTE[0];
   const statusClass=p.status==='active'?'online':'inactive';
   const av=isMod
     ? `<div class="avatar" style="background:${c.bg};color:${c.fg};border:${c.border}">${(window.MY_NAME||p.id)[0].toUpperCase()}</div>`
     : aiAvatar(p.id,c,32,{label:cap(p.id)});
+  const badge=isMod?'':providerBadge(p.provider);
   return `<div class="agent-row" data-id="${p.id}">
     ${av}
-     <div class="info"><div class="name">${isMod?(window.MY_NAME||cap(p.id)):cap(p.id)}</div><div class="role">${roleLabel(p.role,isMod)}</div></div>
+     <div class="info"><div class="name">${isMod?(window.MY_NAME||cap(p.id)):cap(p.id)}</div><div class="role">${roleLabel(p.role,isMod)}${badge}</div></div>
     <div class="status-dot ${statusClass}"></div>
   </div>`;
 }
@@ -723,7 +735,7 @@ async function loadDashboard(){
            return `<div class="dash-card" style="margin-bottom:6px">
             <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
               ${isMod?`<div class="s-avatar moderator" style="width:26px;height:26px;font-size:11px">${(window.MY_NAME||p.id)[0].toUpperCase()}</div>`:aiAvatar(p.id,senderColors[p.id]||PALETTE[0],28,{label:cap(p.id)})}
-              <div><div style="font-size:14px;font-weight:600;color:var(--text)">${cap(p.id)}</div><div style="font-size:11px;color:var(--text2)">${roleLabel(p.role,isMod)}</div></div>
+              <div><div style="font-size:14px;font-weight:600;color:var(--text)">${cap(p.id)}</div><div style="font-size:11px;color:var(--text2)">${roleLabel(p.role,isMod)}${isMod?'':providerBadge(p.provider)}</div></div>
             </div>
             <div style="display:flex;justify-content:space-around;margin-bottom:3px">
               <div style="text-align:center"><div style="font-size:13px;font-weight:600;color:${(senderColors[p.id]||PALETTE[0]).fg}">${cnt}</div><div style="font-size:11px;color:var(--text2)">${t('dashboard.turns')}</div></div>

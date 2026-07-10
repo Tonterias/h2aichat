@@ -241,7 +241,10 @@ async function loadCatalog(){
   }catch(e){ box.innerHTML='<p class="muted">Error al cargar el catálogo.</p>'; }
 }
 function renderCatalog(cat, models){
-  const dl='<datalist id="modelOpts">'+models.map(m=>`<option value="${esc(m.id)}">${esc(m.prov)}</option>`).join('')+'</datalist>';
+  // FASE 40.1 (T6): sugerencias de modelos LOCALES habituales (Ollama/LM Studio), junto a los de nube.
+  const localSug=['llama3.1','llama3.2','qwen2.5','qwen2.5-coder','mistral','phi4','gemma2','deepseek-r1'];
+  const dl='<datalist id="modelOpts">'+models.map(m=>`<option value="${esc(m.id)}">${esc(m.prov)}</option>`).join('')+
+    localSug.map(x=>`<option value="${x}">local</option>`).join('')+'</datalist>';
   const rows=cat.map(m=>catalogRow(m)).join('');
   return dl+`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed">
     <colgroup><col style="width:9%"><col style="width:11%"><col style="width:27%"><col style="width:13%"><col style="width:19%"><col style="width:7%"><col style="width:6%"><col style="width:4%"></colgroup>
@@ -434,14 +437,39 @@ async function loadAppConfig(){
     '<input type="number" id="ac_'+f[0]+'" value="'+(s[f[0]]!=null?s[f[0]]:'')+'" style="width:80px;text-align:center"></div>').join('');
   const prof=(s.bots_config||'').includes('openrouter')?'openrouter':'opencode';
   cont.innerHTML=rows+
+    '<div style="margin-top:14px"><div class="muted" style="margin-bottom:6px" data-tip="Dirección del servidor de modelos que corre en TU máquina. La usan los agentes locales. Compatible con LM Studio y Ollama.">Servidor de modelos local (LM Studio / Ollama)</div>'+
+    '<input type="text" id="ac_local_server_url" value="'+esc(s.local_server_url||'')+'" placeholder="http://localhost:1234/v1" style="width:100%;max-width:340px">'+
+    '<div style="margin-top:6px">'+
+    '<button class="abtn" data-tip="LM Studio (puerto 1234)" onclick="setLocalUrl(\'http://localhost:1234/v1\')">LM Studio</button> '+
+    '<button class="abtn" data-tip="Ollama (puerto 11434)" onclick="setLocalUrl(\'http://localhost:11434/v1\')">Ollama</button> '+
+    '<button class="abtn" data-tip="Comprueba si tu servidor local responde y qué modelos tiene" onclick="testLocalServer()">Probar conexión</button>'+
+    '<div id="localTestResult" class="muted" style="margin-top:6px;font-size:12px"></div></div></div>'+
     '<div style="margin-top:14px"><div class="muted" style="margin-bottom:6px">Modelos por defecto (perfil global)</div>'+
     '<button class="abtn'+(prof==='opencode'?' sel':'')+'" data-tip="OpenCode Go · tarifa plana" onclick="setProfile(\'opencode\')">Económico</button> '+
     '<button class="abtn'+(prof==='openrouter'?' sel':'')+'" data-tip="OpenRouter · de pago por token" onclick="setProfile(\'openrouter\')">Premium</button></div>'+
     '<button class="abtn" style="margin-top:14px" data-tip="Guardar los ajustes de sistema" onclick="saveAppConfig()">Guardar configuración</button>';
 }
+function setLocalUrl(u){ const el=document.getElementById('ac_local_server_url'); if(el) el.value=u; }
+async function testLocalServer(){
+  const out=document.getElementById('localTestResult');
+  const url=(document.getElementById('ac_local_server_url')||{}).value||'';
+  if(out){ out.style.color='var(--text2)'; out.textContent='Probando…'; }
+  const r=await api('GET','/api/local/test?url='+encodeURIComponent(url.trim()));
+  const d=await r.json().catch(()=>({ok:false,error:'respuesta no válida'}));
+  if(!out) return;
+  if(d.ok){
+    out.style.color='#2D6A4F';
+    const n=(d.models||[]).length;
+    out.textContent='✅ Conectado. '+(n?('Modelos: '+d.models.slice(0,6).join(', ')+(n>6?'…':'')):'(sin modelos cargados)');
+  } else {
+    out.style.color='#B42318';
+    out.textContent='❌ No responde. '+(d.error||'')+' — ¿está encendido LM Studio / Ollama?';
+  }
+}
 async function saveAppConfig(){
   const body={};
   APP_FIELDS.forEach(f=>{const v=document.getElementById('ac_'+f[0]).value; if(v!=='')body[f[0]]=v;});
+  const lu=document.getElementById('ac_local_server_url'); if(lu && lu.value.trim()!=='') body.local_server_url=lu.value.trim();
   const r=await api('POST','/api/settings',body);
   if(r.ok){ toast('Configuración guardada'); }
   else { const e=await r.json().catch(()=>({})); toast('Error: '+(e.detail||r.status)); }

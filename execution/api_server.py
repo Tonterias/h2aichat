@@ -1515,7 +1515,8 @@ def get_participants():
             "type": info.get("type"),
             "role": info.get("role"),
             "status": info.get("status"),
-            "email": info.get("email")
+            "email": info.get("email"),
+            "provider": info.get("provider"),  # FASE 40.1 (T5): para el distintivo nube/local
         })
     return {"participants": result}
 
@@ -1936,7 +1937,16 @@ SETTINGS_DEFAULTS = {
     "llm_system_prompt": ORCHESTRATE_SYSTEM,
     "llm_system_prompt_en": ORCHESTRATE_SYSTEM_EN,
     "bots_config": json.dumps(BOTS_CONFIG_DEFAULT),
+    # FASE 40.1: dirección (global) del servidor de modelos LOCAL, compatible con OpenAI.
+    # Sirve para LM Studio (:1234) y Ollama (:11434). La usan los agentes con provider="local".
+    # FASE 40.2: la variable de entorno LOCAL_SERVER_URL fija el default (docker-compose la
+    # apunta al servicio ollama: http://ollama:11434/v1) para que funcione "de fábrica".
+    "local_server_url": os.environ.get("LOCAL_SERVER_URL", "http://localhost:1234/v1"),
 }
+
+
+def _default_local_url() -> str:
+    return os.environ.get("LOCAL_SERVER_URL", "http://localhost:1234/v1")
 
 
 @app.get("/api/settings")
@@ -2045,8 +2055,32 @@ def update_settings(settings: dict, request: Request):
                 lo, hi = SETTINGS_NUMERIC_LIMITS[key]
                 if not (lo <= num <= hi):
                     raise HTTPException(status_code=400, detail=f"{key} fuera de rango ({lo}-{hi})")
+            if key == "local_server_url":
+                v = v.strip()
+                if not (v.startswith("http://") or v.startswith("https://")):
+                    raise HTTPException(status_code=400, detail="local_server_url debe empezar por http:// o https://")
             engine.set_setting(key, v)
     return {"success": True}
+
+
+@app.get("/api/local/test")
+def test_local_server(request: Request, url: str = None):
+    """FASE 40.1 (T3): comprueba si el servidor de modelos LOCAL responde y lista sus modelos.
+    `url` opcional para probar una dirección antes de guardarla; si no, usa el ajuste actual."""
+    _require_admin(request)
+    base = (url or engine.get_setting("local_server_url") or _default_local_url()).strip()
+    if not (base.startswith("http://") or base.startswith("https://")):
+        return {"ok": False, "error": "La dirección debe empezar por http:// o https://"}
+    try:
+        import requests
+        r = requests.get(base.rstrip("/") + "/models", timeout=4)
+        r.raise_for_status()
+        data = r.json()
+        rows = data.get("data", data if isinstance(data, list) else [])
+        models = [m.get("id") for m in rows if isinstance(m, dict) and m.get("id")]
+        return {"ok": True, "url": base, "models": models}
+    except Exception as e:
+        return {"ok": False, "url": base, "error": str(e)[:200]}
 
 
 @app.post("/api/settings/reset")
@@ -2386,7 +2420,9 @@ def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
         engine.release_turn(mod_id, thread)
         _tr({"step": "moderador", "action": "release", "ok": True})
 
-        lm_local = LMStudioClient(base_url="http://localhost:1234/v1")
+        # FASE 40.1: dirección del servidor local configurable (LM Studio / Ollama), la BD manda.
+        _local_url = (engine.get_setting("local_server_url") or _default_local_url()).strip()
+        lm_local = LMStudioClient(base_url=_local_url)
         go_cloud = OpenCodeGoClient()
         or_client = OpenRouterClient()
 
@@ -2490,7 +2526,16 @@ def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
                     ok = engine.force_release_turn(bot_id, thread)
                     _tr({"step": "bot", "round": rnd + 1, "i": i, "bot": bot_id,
                                   "action": "release", "ok": ok})
-                    response_text = f"[{bot_id} no respondio a tiempo, continuamos]"
+                    # FASE 40.1 (T4): aviso CLARO si el fallo es que el servidor local está apagado.
+                    _es_local_caido = provider == "local" and any(
+                        s in str(e) for s in ("CONNECTION_FAILED", "Connection", "refused", "Max retries", "ConnectionError"))
+                    if _es_local_caido:
+                        response_text = (
+                            f"[Can't reach your local model server at {_local_url}. Is LM Studio / Ollama running? Skipping {bot_id}.]"
+                            if lang == "en" else
+                            f"[No encuentro tu servidor de modelos local en {_local_url}. ¿Está encendido LM Studio / Ollama? Salto {bot_id} y sigo.]")
+                    else:
+                        response_text = f"[{bot_id} no respondio a tiempo, continuamos]"
                     try:
                         engine.send_message(next_recipient, response_text, bot_id, thread_id=thread)
                     except Exception:

@@ -27,7 +27,15 @@ python -m uvicorn execution.api_server:app --port 8000
 # open http://localhost:8000
 ```
 
-To run it **100% on your machine** with your own models, see `docs/INSTALLATION.md` (local mode). Put your keys in `.env` (see `.env.example`); never commit real keys.
+To run it **100% on your machine** with your own models (nothing leaves your computer), the fastest way is Docker:
+
+```bash
+docker compose up -d
+docker compose exec ollama ollama pull llama3.1
+# open http://localhost:8000
+```
+
+Full guide (Docker or LM Studio / Ollama, plus an honest privacy note): `docs/RUN_LOCALLY.md`. Put your keys in `.env` (see `.env.example`); never commit real keys.
 
 ## Status
 
