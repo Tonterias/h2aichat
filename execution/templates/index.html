@@ -1094,35 +1094,35 @@ function maybeAskFeedback(thread){
   const old=document.getElementById('fbPanel');if(old)old.remove();
   const d=document.createElement('div');d.id='fbPanel';d.dataset.thread=thread;d.dataset.vote='';
   d.style.cssText='position:fixed;right:18px;bottom:96px;z-index:1000;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.14);padding:14px 16px;width:280px;font-size:13px;color:var(--text)';
-  d.innerHTML='<div style="font-weight:600;margin-bottom:8px">¿Qué te ha parecido la conversación?</div>'+
+  d.innerHTML='<div style="font-weight:600;margin-bottom:8px">'+t('feedback.title')+'</div>'+
     '<div id="fbVotes" style="display:flex;gap:8px;margin-bottom:8px">'+
     '<button type="button" onclick="fbVote(this,\'up\')" style="flex:1;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:18px">👍</button>'+
     '<button type="button" onclick="fbVote(this,\'down\')" style="flex:1;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:18px">👎</button></div>'+
-    '<textarea id="fbComment" placeholder="¿Algún comentario? (opcional)" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:12px;resize:vertical;min-height:46px"></textarea>'+
+    '<textarea id="fbComment" placeholder="'+t('feedback.comment')+'" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:12px;resize:vertical;min-height:46px"></textarea>'+
     '<div style="display:flex;gap:8px;margin-top:8px">'+
-    '<button type="button" onclick="fbSend()" style="flex:1;padding:9px;border:none;border-radius:8px;background:var(--pink-accent);color:#fff;font-weight:600;cursor:pointer">Enviar</button>'+
-    '<button type="button" onclick="this.closest(\'#fbPanel\').remove()" style="padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;color:var(--text2)">Cerrar</button></div>';
+    '<button type="button" onclick="fbSend()" style="flex:1;padding:9px;border:none;border-radius:8px;background:var(--pink-accent);color:#fff;font-weight:600;cursor:pointer">'+t('feedback.send')+'</button>'+
+    '<button type="button" onclick="this.closest(\'#fbPanel\').remove()" style="padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;color:var(--text2)">'+t('feedback.close')+'</button></div>';
   document.body.appendChild(d);
 }
 function fbVote(btn,v){const d=document.getElementById('fbPanel');if(!d)return;d.dataset.vote=v;d.querySelectorAll('#fbVotes button').forEach(b=>b.style.borderColor='var(--border)');btn.style.borderColor='var(--pink-accent)';}
 function fbSend(){const d=document.getElementById('fbPanel');if(!d)return;const vote=d.dataset.vote||'';const comment=(document.getElementById('fbComment').value||'').trim();
   if(!vote&&!comment){d.remove();return;}
   fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'conversation',conversation_id:d.dataset.thread,vote:vote||null,comment:comment||null})}).catch(()=>{});
-  d.innerHTML='<div style="font-weight:600">¡Gracias por tu opinión! 🙏</div>';setTimeout(()=>{const p=document.getElementById('fbPanel');if(p)p.remove();},1800);
+  d.innerHTML='<div style="font-weight:600">'+t('feedback.thanks')+'</div>';setTimeout(()=>{const p=document.getElementById('fbPanel');if(p)p.remove();},1800);
 }
 function openContact(){
   const old=document.getElementById('contactModal');if(old)old.remove();
   const m=document.createElement('div');m.id='contactModal';
   m.style.cssText='position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:20px';
   m.innerHTML='<div style="background:#fff;border-radius:14px;padding:22px;width:100%;max-width:420px;font-size:13px;color:var(--text)">'+
-    '<div style="font-weight:700;font-size:16px;margin-bottom:4px">Tu opinión nos ayuda 💬</div>'+
-    '<p style="color:var(--text2);margin:0 0 12px">Cuéntanos qué te parece, una duda o un fallo. Si quieres respuesta, deja tu email.</p>'+
-    '<select id="ctType" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:13px"><option value="idea">Idea / sugerencia</option><option value="duda">Duda / pregunta</option><option value="fallo">Fallo / problema</option><option value="otro">Otro</option></select>'+
-    '<textarea id="ctMsg" placeholder="Escribe aquí…" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:13px;resize:vertical;min-height:90px;margin-bottom:8px"></textarea>'+
-    '<input id="ctEmail" type="email" placeholder="Tu email (opcional)" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:13px;margin-bottom:10px">'+
-    '<div id="ctMsgErr" style="color:#C0392B;font-size:12px;margin-bottom:8px;display:none">Escribe algo antes de enviar.</div>'+
-    '<div style="display:flex;gap:8px"><button type="button" onclick="sendContact()" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--pink-accent);color:#fff;font-weight:600;cursor:pointer">Enviar</button>'+
-    '<button type="button" onclick="document.getElementById(\'contactModal\').remove()" style="padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;color:var(--text2)">Cancelar</button></div></div>';
+    '<div style="font-weight:700;font-size:16px;margin-bottom:4px">'+t('contact.title')+'</div>'+
+    '<p style="color:var(--text2);margin:0 0 12px">'+t('contact.intro')+'</p>'+
+    '<select id="ctType" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:13px"><option value="idea">'+t('contact.type.idea')+'</option><option value="duda">'+t('contact.type.question')+'</option><option value="fallo">'+t('contact.type.bug')+'</option><option value="otro">'+t('contact.type.other')+'</option></select>'+
+    '<textarea id="ctMsg" placeholder="'+t('contact.placeholder')+'" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:13px;resize:vertical;min-height:90px;margin-bottom:8px"></textarea>'+
+    '<input id="ctEmail" type="email" placeholder="'+t('contact.email')+'" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:13px;margin-bottom:10px">'+
+    '<div id="ctMsgErr" style="color:#C0392B;font-size:12px;margin-bottom:8px;display:none">'+t('contact.error')+'</div>'+
+    '<div style="display:flex;gap:8px"><button type="button" onclick="sendContact()" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--pink-accent);color:#fff;font-weight:600;cursor:pointer">'+t('feedback.send')+'</button>'+
+    '<button type="button" onclick="document.getElementById(\'contactModal\').remove()" style="padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;color:var(--text2)">'+t('contact.cancel')+'</button></div></div>';
   m.addEventListener('click',e=>{if(e.target===m)m.remove();});
   document.body.appendChild(m);
 }
@@ -1131,7 +1131,7 @@ function sendContact(){
   if(!msg){document.getElementById('ctMsgErr').style.display='block';return;}
   const type=document.getElementById('ctType').value;const email=(document.getElementById('ctEmail').value||'').trim();
   fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'contact',contact_type:type,comment:msg,contact_email:email||null})}).catch(()=>{});
-  const m=document.getElementById('contactModal');if(m)m.querySelector('div').innerHTML='<div style="font-weight:700;font-size:16px">¡Gracias! 🙏</div><p style="color:var(--text2);margin:8px 0 0">Hemos recibido tu mensaje.</p>';
+  const m=document.getElementById('contactModal');if(m)m.querySelector('div').innerHTML='<div style="font-weight:700;font-size:16px">'+t('contact.thanks_title')+'</div><p style="color:var(--text2);margin:8px 0 0">'+t('contact.thanks_body')+'</p>';
   setTimeout(()=>{const x=document.getElementById('contactModal');if(x)x.remove();},1800);
 }
 
@@ -1178,10 +1178,10 @@ async function openUserPrefs(){
   const L=d.limits||{}, p=d.prefs||{}, eff=d.effective||{};
   document.getElementById('prefsPlan').textContent='Plan '+(d.plan||'');
   const rEl=document.getElementById('prefsRounds'); rEl.max=L.max_rounds; rEl.value=(p.rounds!=null?p.rounds:eff.rounds)||1;
-  document.getElementById('prefsRoundsMax').textContent='(máx. '+L.max_rounds+')';
+  document.getElementById('prefsRoundsMax').textContent=t('prefs.max',{n:L.max_rounds});
   const tEl=document.getElementById('prefsTokens'); tEl.max=L.max_tokens; tEl.value=(p.max_tokens!=null?p.max_tokens:eff.max_tokens)||L.max_tokens;
-  document.getElementById('prefsTokensMax').textContent='(máx. '+L.max_tokens+')';
-  const cap=(L.max_creativity!=null?L.max_creativity:2); const labels=d.creativity_labels||['Enfocada','Equilibrada','Creativa'];
+  document.getElementById('prefsTokensMax').textContent=t('prefs.max',{n:L.max_tokens});
+  const cap=(L.max_creativity!=null?L.max_creativity:2); const labels=[t('creativity.focused'),t('creativity.balanced'),t('creativity.creative')];
   let html='';
   for(let i=0;i<=cap;i++) html+='<button type="button" onclick="setCreat('+i+')" id="creat'+i+'" style="flex:1;padding:7px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:12px">'+labels[i]+'</button>';
   document.getElementById('prefsCreativity').innerHTML=html;
@@ -1190,7 +1190,7 @@ async function openUserPrefs(){
   const md=await fetchJSON('/api/me/models');
   if(md){
     window._prefsMaxModels=md.max_models||3;
-    document.getElementById('prefsModelsMax').textContent='(elige hasta '+window._prefsMaxModels+')';
+    document.getElementById('prefsModelsMax').textContent=t('prefs.choose_up_to',{n:window._prefsMaxModels});
     const sel=new Set(md.selected||[]);
     document.getElementById('prefsModels').innerHTML=(md.available||[]).map(m=>
       '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" class="pmodel" value="'+m.id+'" '+(sel.has(m.id)?'checked':'')+' onchange="modelToggle(this)"> '+
