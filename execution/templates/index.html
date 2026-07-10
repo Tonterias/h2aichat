@@ -1194,7 +1194,7 @@ async function openUserPrefs(){
     const sel=new Set(md.selected||[]);
     document.getElementById('prefsModels').innerHTML=(md.available||[]).map(m=>
       '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" class="pmodel" value="'+m.id+'" '+(sel.has(m.id)?'checked':'')+' onchange="modelToggle(this)"> '+
-      m.label+' <span style="color:var(--text2);font-size:11px">'+m.role+(m.provider==='openrouter'?' · premium':'')+'</span></label>').join('');
+      m.label+' <span style="color:var(--text2);font-size:11px">'+roleLabel(m.role)+(m.provider==='openrouter'?' · premium':'')+'</span></label>').join('');
   }
   document.getElementById('prefsSysPrompt').value = p.system_prompt_extra || '';
   document.getElementById('userPrefsModal').style.display='flex';
