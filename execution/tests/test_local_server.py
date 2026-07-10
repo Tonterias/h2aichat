@@ -81,6 +81,44 @@ class TestLocalServerUrl(unittest.TestCase):
                 os.environ["LOCAL_SERVER_URL"] = old
 
 
+class TestAgenteLocalPorDefecto(unittest.TestCase):
+    """FASE 40.2: en self-host local (HUMANIA_LOCAL=1) el debate arranca con un agente
+    'Local' listo; en PROD (sin la variable) siguen los bots de nube. Cambio NO-OP en PROD."""
+
+    def _set_local(self, on):
+        import os
+        if on:
+            os.environ["HUMANIA_LOCAL"] = "1"
+        else:
+            os.environ.pop("HUMANIA_LOCAL", None)
+
+    def tearDown(self):
+        self._set_local(False)
+
+    def test_default_bots_local_trae_agente_local(self):
+        import api_server
+        self._set_local(True)
+        cfg = api_server._default_bots_config()
+        self.assertIn("local", cfg)
+        self.assertEqual(cfg["local"]["provider"], "local")
+
+    def test_default_bots_prod_son_de_nube(self):
+        import api_server
+        self._set_local(False)
+        cfg = api_server._default_bots_config()
+        self.assertNotIn("local", cfg)
+        self.assertTrue(all(b["provider"] == "cloud" for b in cfg.values()))
+
+    def test_catalogo_local_incluye_entrada_local(self):
+        import tempfile
+        import api_server
+        from engine import ConversationEngine
+        self._set_local(True)
+        eng = ConversationEngine(base_path=Path(tempfile.mkdtemp()))
+        ids = [m["id"] for m in api_server.get_model_catalog(eng)]
+        self.assertIn("local", ids)
+
+
 class TestIndicadorI18n(unittest.TestCase):
     def test_claves_nube_local_en_es_y_en(self):
         import i18n

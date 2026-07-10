@@ -1649,6 +1649,27 @@ BOTS_CONFIG_DEFAULT = {
     "deepseek_flash": {"provider": "cloud", "model": "deepseek-v4-flash", "role": "analista",  "email": "deepseek_flash@bot.humania.local", "max_tokens": 2000},
 }
 
+# FASE 40.2: en el paquete self-host 100% local (HUMANIA_LOCAL=1, docker-compose) el debate
+# arranca DE FABRICA con un agente que usa tu servidor de modelos (Ollama/LM Studio), para que
+# funcione sin configurar nada. El id "local" es el que la UI muestra como nombre -> "Local".
+# En PROD (sin HUMANIA_LOCAL) NO aplica: alli siguen los 3 bots de nube -> cambio NO-OP en PROD.
+BOTS_CONFIG_LOCAL_DEFAULT = {
+    "local": {"provider": "local", "model": "llama3.2", "role": "analista", "email": "local@bot.local", "max_tokens": 400},
+}
+# Entrada de catalogo equivalente (para que el agente "Local" aparezca como disponible en /admin).
+LOCAL_CATALOG_ENTRY = {"id": "local", "label": "Local", "model": "llama3.2", "provider": "local",
+                       "role": "analista", "email": "local@bot.local", "max_tokens": 400}
+
+
+def _is_local_host() -> bool:
+    """True si corremos como self-host local de un solo usuario (docker-compose fija HUMANIA_LOCAL=1)."""
+    return os.environ.get("HUMANIA_LOCAL") == "1"
+
+
+def _default_bots_config() -> dict:
+    """Bots activos por defecto: en self-host local, un agente 'Local' listo; en el resto, los de nube."""
+    return BOTS_CONFIG_LOCAL_DEFAULT if _is_local_host() else BOTS_CONFIG_DEFAULT
+
 # Ids alineados al catalogo (qwen_plus/minimax/deepseek_flash) para no crear bots
 # "fantasma" al reaplicar el perfil (antes usaba qwen/deepseek, ids divergentes).
 PROFILE_OPENCODE = {
@@ -1689,6 +1710,9 @@ def get_model_catalog(engine):
                 return c
         except json.JSONDecodeError:
             pass
+    # En self-host local, ofrecer el agente "Local" ya listo al frente del catalogo.
+    if _is_local_host():
+        return [LOCAL_CATALOG_ENTRY] + MODEL_CATALOG_DEFAULT
     return MODEL_CATALOG_DEFAULT
 
 
@@ -1950,7 +1974,7 @@ SETTINGS_DEFAULTS = {
     "llm_max_tokens": "800",
     "llm_system_prompt": ORCHESTRATE_SYSTEM,
     "llm_system_prompt_en": ORCHESTRATE_SYSTEM_EN,
-    "bots_config": json.dumps(BOTS_CONFIG_DEFAULT),
+    "bots_config": json.dumps(_default_bots_config()),
     # FASE 40.1: dirección (global) del servidor de modelos LOCAL, compatible con OpenAI.
     # Sirve para LM Studio (:1234) y Ollama (:11434). La usan los agentes con provider="local".
     # FASE 40.2: la variable de entorno LOCAL_SERVER_URL fija el default (docker-compose la
@@ -2104,7 +2128,7 @@ def reset_settings(request: Request):
     conn.execute("DELETE FROM settings")
     conn.commit()
     conn.close()
-    engine.set_setting("bots_config", json.dumps(BOTS_CONFIG_DEFAULT))
+    engine.set_setting("bots_config", json.dumps(_default_bots_config()))
     return {"success": True}
 
 
@@ -2151,7 +2175,7 @@ def factory_reset(request: Request):
     conn.commit()
     conn.close()
     engine.hard_reset_all()
-    engine.set_setting("bots_config", json.dumps(BOTS_CONFIG_DEFAULT))
+    engine.set_setting("bots_config", json.dumps(_default_bots_config()))
     return {"success": True, "message": "Sistema reiniciado. Todos los datos borrados."}
 
 

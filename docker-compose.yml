@@ -2,8 +2,8 @@
 # Levanta la app + un servidor de modelos Ollama, ya conectados entre sí.
 #
 #   docker compose up -d                       # arranca todo
-#   docker compose exec ollama ollama pull llama3.1   # baja un modelo (una vez)
-#   # abre http://localhost:8000  ->  en /admin, los agentes "local" usan Ollama
+#   docker compose exec ollama ollama pull llama3.2   # baja un modelo (una vez)
+#   # abre http://localhost:8000  ->  ya trae un agente "Local" listo (llama3.2 via Ollama)
 #
 # Nada sale de tu máquina: el debate corre entre tus modelos, en tu equipo.
 services:

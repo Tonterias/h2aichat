@@ -12,13 +12,15 @@ This brings up H2AI Chat **and** a local model server (Ollama), already wired to
 
 ```bash
 docker compose up -d                              # start the app + Ollama
-docker compose exec ollama ollama pull llama3.1   # download a model (once)
+docker compose exec ollama ollama pull llama3.2   # download a model (once)
 # open http://localhost:8000
 ```
 
-Then, in **`/admin` → "Configuración de la aplicación"**, the local server is already pointed at Ollama. Set an agent's provider to **local** and its model to the one you pulled (e.g. `llama3.1`). Use **"Probar conexión"** to check it responds.
+It comes **ready to debate**: a local-mode instance ships with an agent called **"Local"** already set to your Ollama (`llama3.2`), so you can just type a question and go. No login is needed on a local instance.
 
-That's it — the debate now runs entirely inside your machine.
+Want more control? In **`/admin` → "Configuración de la aplicación"** the local server is already pointed at Ollama — add or edit agents (set provider to **local** and pick any model you pulled) and use **"Probar conexión"** to check it responds.
+
+That's it — the debate runs entirely inside your machine.
 
 ---
 
