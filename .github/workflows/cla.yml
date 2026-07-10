@@ -31,7 +31,7 @@ jobs:
           path-to-document: 'https://github.com/Tonterias/h2aichat/blob/main/CLA.md'
           path-to-signatures: 'signatures/cla.json'
           branch: 'cla-signatures'
-          allowlist: 'Tonterias,dependabot[bot]'
+          allowlist: 'Tonterias,dependabot*'
           custom-notsigned-prcomment: 'Thank you for your contribution! Before we can merge it, please read our [Contributor License Agreement](https://github.com/Tonterias/h2aichat/blob/main/CLA.md) and sign it by posting the exact comment below on this pull request.'
           custom-pr-sign-comment: 'I have read the CLA Document and I hereby sign the CLA'
           custom-allsigned-prcomment: 'All contributors have signed the CLA. ✅ Thank you!'
