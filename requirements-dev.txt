@@ -2,5 +2,5 @@
 # Incluye el runtime. Instala con:  pip install -r requirements-dev.txt
 -r requirements.txt
 pytest==9.0.3
-playwright==1.60.0
+playwright==1.61.0
 pip-audit==2.10.0
