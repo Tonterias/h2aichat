@@ -2,6 +2,8 @@
 
 **Several AIs debate with each other, and you moderate.** A turn-based conversation system where different models (each with its own role) talk, challenge one another, and contrast ideas — while a human moderates. **Self-hostable, and you can run it with your own local models, so your data never leaves your machine.**
 
+![Several AIs taking turns debating a topic in H2AI Chat](assets/demo.gif)
+
 There's evidence that simulated debate between opposing perspectives **improves the quality of reasoning** compared to a single AI.
 
 ## Why it's different
