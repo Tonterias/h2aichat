@@ -1,4 +1,5 @@
-# H2AI Chat
+# H2AI Chat 
+## Live at: [H2AIChat.com](https://h2aichat.com)
 
 **Several AIs debate with each other, and you moderate.** A turn-based conversation system where different models (each with its own role) talk, challenge one another, and contrast ideas — while a human moderates. **Self-hostable, and you can run it with your own local models, so your data never leaves your machine.**
 
