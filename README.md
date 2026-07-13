@@ -4,7 +4,7 @@
 
 ![Several AIs taking turns debating a topic in H2AI Chat](assets/demo.gif)
 
-There's evidence that simulated debate between opposing perspectives **improves the quality of reasoning** compared to a single AI.
+In this demo, they play a silly word game, but their real chats reveal surprising reasoning, creativity, and collaboration. [Research suggests](https://arxiv.org/abs/2601.10825) that simulated debate between opposing views produces better reasoning than a single AI alone.
 
 ## Why it's different
 
