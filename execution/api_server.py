@@ -1,6 +1,7 @@
 import sys
 import json
 import os
+import secrets
 import traceback
 from collections import defaultdict
 from pathlib import Path
@@ -421,7 +422,18 @@ def _health_alert_check(eng, sample=None):
         # cur < st["level"] pero >= recuperación: mejora parcial, no se avisa
     return sent
 
-app = FastAPI(title="H2AI Chat API", version="1.0")
+def _docs_segun_entorno(env: str) -> dict:
+    """Las URLs de documentacion, o None en produccion. FastAPI sirve por defecto /docs, /redoc y
+    /openapi.json en cualquier entorno, y el openapi.json es el PLANO ENTERO de la API a la vista
+    de cualquiera sin credenciales. En dev se dejan (utiles, nada que proteger); en produccion,
+    fuera."""
+    if env == "production":
+        return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    return {"docs_url": "/docs", "redoc_url": "/redoc", "openapi_url": "/openapi.json"}
+
+
+app = FastAPI(title="H2AI Chat API", version="1.0",
+              **_docs_segun_entorno(os.environ.get("HUMANIA_ENV", "dev")))
 engine = ConversationEngine(base_path=Path(__file__).parent.parent)
 auth.init_auth_tables(engine)
 auth.cleanup_expired(engine)  # GDPR 20.8e: minimizacion al arrancar
@@ -468,7 +480,10 @@ async def security_middleware(request, call_next):
             user = {"user_id": int(payload["sub"]), "email": payload.get("email", ""),
                     "name": payload.get("name", ""), "plan": payload.get("plan", "free")}
 
-    master_ok = request.headers.get("X-Humania-Token") == SECRET_TOKEN
+    # compare_digest y no ==, para que comparar el token maestro tarde lo mismo se acierte por
+    # donde se acierte: con == se puede, en teoria, adivinarlo byte a byte midiendo tiempos.
+    master_ok = bool(SECRET_TOKEN) and secrets.compare_digest(
+        request.headers.get("X-Humania-Token") or "", SECRET_TOKEN)
     if protected and not is_local and user is None and not master_ok:
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
 
@@ -567,7 +582,18 @@ def _is_admin(request: Request) -> bool:
         return True
     user = getattr(request.state, "user", None) or {}
     email = (user.get("email") or "").strip().lower()
-    return email == ADMIN_EMAIL or email == auth.DEV_USER["email"]
+    if email == auth.DEV_USER["email"]:
+        return True
+    if email != ADMIN_EMAIL:
+        return False
+    # EL CORREO COINCIDE, PERO ESO SOLO NO BASTA. Ser admin no puede ser «tener una cuenta con
+    # este correo»: tiene que ser «tenerlo Y HABERLO VERIFICADO Y estar activa». Sin esto,
+    # cualquiera que despliegue su instancia y no cambie HUMANIA_ADMIN_EMAIL hereda el correo por
+    # defecto y se autoproclama admin dandose de alta con el —sin tener acceso a esa bandeja—.
+    # Se lee fresco de la base porque el token no lleva ese dato.
+    fresh = auth.get_user(engine, user.get("user_id"))
+    return bool(fresh and fresh.get("email_verified") and fresh.get("status") == "active"
+                and (fresh.get("email") or "").strip().lower() == ADMIN_EMAIL)
 
 
 def _require_admin(request: Request):

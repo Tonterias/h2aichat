@@ -57,6 +57,15 @@ class OpenCodeGoClient:
                 time.sleep(wait)
                 last_error = f"429 retry {attempt + 1}/3 after {wait}s"
                 continue
+            # EL PROVEEDOR RETIRA UN PARAMETRO SIN AVISAR. Algunos modelos dejan de aceptar el
+            # campo `reasoning` y devuelven 400 «Extra inputs are not permitted, field:
+            # 'reasoning'» — y con el, ese bot se queda MUDO en la mesa. En vez de que un cambio
+            # del proveedor calle un asiento, si el 400 es por ese campo se reintenta SIN el.
+            if (resp.status_code == 400 and "reasoning" in payload
+                    and "reasoning" in (resp.text or "").lower() and attempt < 3):
+                payload.pop("reasoning", None)
+                last_error = "400: el modelo no acepta 'reasoning'; reintento sin el"
+                continue
             resp.raise_for_status()
             data = resp.json()
             msg = data["choices"][0]["message"]

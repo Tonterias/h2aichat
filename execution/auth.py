@@ -373,6 +373,12 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
+# Un hash de mentira contra el que comparar cuando el usuario NO existe: bcrypt tarda ~100 ms, y
+# si solo se ejecutara para los correos que existen, ese retraso delataria que la cuenta esta ahi.
+# Comparar siempre —contra el real o contra este— iguala los tiempos y cierra ese canal.
+_HASH_SENUELO = bcrypt.hashpw(b"x", bcrypt.gensalt()).decode("utf-8")
+
+
 # ── JWT ──────────────────────────────────────────────────────────────────────
 
 def create_token(user_id: int, email: str, name: str, plan: str) -> str:
@@ -480,7 +486,9 @@ def login_user(engine, email: str, password: str):
     email = (email or "").strip().lower()
     conn = engine._get_conn()
     row = conn.execute("SELECT * FROM users WHERE email=? AND status='active'", (email,)).fetchone()
-    if not row or not verify_password(password or "", row["password_hash"]):
+    # Se compara SIEMPRE, tambien cuando el correo no existe, contra un hash de mentira: si bcrypt
+    # solo corriera para los correos que existen, la diferencia de tiempo diria cuales tienen cuenta.
+    if not verify_password(password or "", row["password_hash"] if row else _HASH_SENUELO) or not row:
         conn.close()
         return None
     now = datetime.now(timezone.utc).isoformat()
@@ -637,15 +645,19 @@ def _consume_one_time_token(engine, table: str, token: str):
         return None
     now = datetime.now(timezone.utc).isoformat()
     conn = engine._get_conn()
-    row = conn.execute(f"SELECT * FROM {table} WHERE token=? AND used=0 AND expires_at > ?",
-                       (token, now)).fetchone()
-    if not row:
+    # El marcado de usado va EN LA MISMA orden que lo comprueba (`UPDATE ... WHERE used=0`), no en
+    # dos pasos: con un SELECT y luego un UPDATE aparte, dos peticiones a la vez con el mismo token
+    # pueden leer las dos `used=0` y consumirlo dos veces. Si el UPDATE no toca ninguna fila, otro
+    # llego antes. `table` es una constante del codigo, nunca entrada del usuario.
+    cur = conn.execute(
+        f"UPDATE {table} SET used=1 WHERE token=? AND used=0 AND expires_at > ?", (token, now))
+    if cur.rowcount != 1:
         conn.close()
         return None
-    conn.execute(f"UPDATE {table} SET used=1 WHERE id=?", (row["id"],))
+    row = conn.execute(f"SELECT user_id FROM {table} WHERE token=?", (token,)).fetchone()
     conn.commit()
     conn.close()
-    return row["user_id"]
+    return row["user_id"] if row else None
 
 
 def create_verification(engine, user_id: int) -> str:
@@ -682,7 +694,12 @@ def reset_password(engine, token: str, new_password: str) -> bool:
     if user_id is None:
         return False
     conn = engine._get_conn()
-    conn.execute("UPDATE users SET password_hash=? WHERE id=?", (hash_password(new_password), user_id))
+    # SE SELLAN LAS SESIONES, y no es un adorno. La razon normal para restablecer la contrasenia
+    # es sospechar que alguien ha entrado en tu cuenta — y si solo se cambia el hash, el intruso
+    # sigue dentro con su token hasta que caduque. El mecanismo ya existia (sessions_invalid_before,
+    # el mismo que corta las sesiones al suspender): faltaba usarlo tambien aqui.
+    conn.execute("UPDATE users SET password_hash=?, sessions_invalid_before=? WHERE id=?",
+                 (hash_password(new_password), datetime.now(timezone.utc).isoformat(), user_id))
     conn.commit()
     conn.close()
     return True

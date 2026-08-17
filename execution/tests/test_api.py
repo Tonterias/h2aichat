@@ -348,8 +348,12 @@ class TestSettingsSecurity(unittest.TestCase):
         api_server.engine = ConversationEngine()
 
     def _tok(self, email):
-        return self.client.post("/auth/register",
-                                json={"email": email, "password": "Test1234!", "name": "X", "accept_terms": True, "confirm_adult": True}).json().get("token")
+        tok = self.client.post("/auth/register",
+                               json={"email": email, "password": "Test1234!", "name": "X", "accept_terms": True, "confirm_adult": True}).json().get("token")
+        c = self.engine._get_conn()          # ser admin exige el correo verificado; a un no-admin no le da nada
+        c.execute("UPDATE users SET email_verified=1 WHERE email=?", (email,))
+        c.commit(); c.close()
+        return tok
 
     def test_usuario_normal_no_cambia_settings(self):
         h = {"Authorization": "Bearer " + self._tok("normal@example.com")}
