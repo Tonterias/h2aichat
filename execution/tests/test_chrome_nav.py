@@ -1,10 +1,10 @@
 """FASE 20.1-UX (Addendum UX3) — Guarda de la cabecera compartida (chrome.py).
 
-Fija los invariantes de los retoques de cabecera en movil, para que no se rompan sin querer:
-- la insignia Beta NO se muestra en el nav por defecto (Beta vive en el cuerpo de la home),
-- pero SIGUE reapareciendo en STAGING como aviso azul (el color azul es la senal de PRE-PROD),
+Pins the invariants of the mobile header tweaks so they do not break by accident:
+- the Beta badge is NOT shown in the nav by default (Beta lives in the home page body),
+- but it DOES come back on STAGING as a blue notice, blue being the signal for staging,
 - el nav conserva el span `envBadge` (el JS de staging le pone el texto PRE-PROD),
-- y hay reglas responsive para ocultar los enlaces de nav en pantalla estrecha.
+- and there are responsive rules hiding the nav links on a narrow screen.
 """
 import sys
 import unittest
@@ -17,16 +17,16 @@ import chrome
 
 class TestChromeNav(unittest.TestCase):
     def test_nav_conserva_envBadge(self):
-        # el span debe seguir existiendo para que STAGING_JS le ponga 'PRE-PROD'
+        # the span must still exist so STAGING_JS can put 'PRE-PROD' in it
         html = chrome.render_nav("es", mode="spa")
         self.assertIn('id="envBadge"', html)
 
     def test_beta_oculta_por_defecto(self):
-        # UX3-2: en produccion la insignia Beta no va en el nav
+        # in production the Beta badge does not belong in the nav
         self.assertIn(".beta-badge{display:none", chrome.CHROME_CSS)
 
     def test_beta_reaparece_azul_en_staging(self):
-        # el aviso de entorno de pruebas (azul) se conserva
+        # the staging notice, in blue, is kept
         self.assertIn("body.staging-env .beta-badge{display:inline-block", chrome.CHROME_CSS)
         self.assertIn("#1A5FB4", chrome.CHROME_CSS)  # el azul
 

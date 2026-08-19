@@ -1,7 +1,7 @@
-"""FASE 40.1 — Ajuste global de la dirección del servidor de modelos LOCAL.
+"""Global setting for the address of the LOCAL model server.
 
-Cubre T1+T2: el ajuste `local_server_url` existe con el default de LM Studio, se
-persiste (la BD manda), valida que sea una URL http(s), y los agentes locales lo usan.
+The `local_server_url` setting exists with the LM Studio default, is persisted
+(the database wins), is validated as an http(s) URL, and local agents use it.
 """
 import shutil
 import tempfile
@@ -49,12 +49,12 @@ class TestLocalServerUrl(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
 
     def test_el_agente_local_usa_el_ajuste(self):
-        # el default y el guardado se leen con get_setting (lo que usa /orchestrate)
+        # both the default and the stored value are read with get_setting, the same call /orchestrate uses
         self.engine.set_setting("local_server_url", "http://localhost:11434/v1")
         self.assertEqual(self.engine.get_setting("local_server_url"), "http://localhost:11434/v1")
 
     def test_probar_conexion_servidor_caido(self):
-        # T3: un servidor que no existe -> ok:false, sin reventar (puerto improbable)
+        # a server that does not exist gives ok:false without blowing up (an unlikely port)
         r = self.client.get("/api/local/test?url=http://127.0.0.1:59999/v1")
         self.assertEqual(r.status_code, 200)
         d = r.json()
@@ -82,8 +82,8 @@ class TestLocalServerUrl(unittest.TestCase):
 
 
 class TestAgenteLocalPorDefecto(unittest.TestCase):
-    """FASE 40.2: en self-host local (HUMANIA_LOCAL=1) el debate arranca con un agente
-    'Local' listo; en PROD (sin la variable) siguen los bots de nube. Cambio NO-OP en PROD."""
+    """In local self-host mode (HUMANIA_LOCAL=1) the debate starts with a ready 'Local'
+    agent; without that variable the cloud bots stay as they are."""
 
     def _set_local(self, on):
         import os

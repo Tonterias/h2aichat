@@ -1,7 +1,7 @@
 """FASE 24 — Test de aceptacion: turno/cola/stop AISLADOS por conversacion.
 
-Es la repro del sabotaje de la Fase 23 (repro_turno_global.py) convertida en
-regresion: lo que antes demostraba el sabotaje, ahora debe demostrar el aislamiento."""
+This is the reproduction of an old sabotage turned into a regression test: what
+once demonstrated the bug must now demonstrate the isolation."""
 import os
 import shutil
 import sys
@@ -29,10 +29,10 @@ class TestTurnIsolationEngine(unittest.TestCase):
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_limpieza_de_B_no_roba_turno_ni_cola_de_A(self):
-        """El corazon del fix: la orquestacion de B (clear_queue + force_release
+        """The heart of the fix: orchestrating B (clear_queue plus force_release
         acotados a su hilo) NO toca a la conversacion A."""
         e = self.engine
-        # A en marcha: un bot tiene el turno y otros esperan en cola
+        # A is running: one bot holds the turn and others wait in the queue
         e.acquire_turn("qwen_plus", "A")
         e.add_to_queue("minimax", "A")
         e.add_to_queue("deepseek_flash", "A")
@@ -93,8 +93,8 @@ class TestTurnIsolationEngine(unittest.TestCase):
         self.assertIsNone(e.get_current_turn("B"))
 
     def test_migracion_de_esquema_viejo_preserva_general(self):
-        """Una BD con el esquema VIEJO (turns de fila unica id=1) se migra a una fila
-        por hilo, preservando el estado bajo 'general'."""
+        """A database on the OLD schema (a single turns row with id=1) is migrated to one row
+        per thread, preserving the state under 'general'."""
         d = Path(tempfile.mkdtemp())
         try:
             e = ConversationEngine(base_path=d)
@@ -129,7 +129,7 @@ class TestConcurrentOrchestrationHTTP(unittest.TestCase):
         api_server.engine = ConversationEngine()
 
     def _orchestrate(self, thread):
-        # rounds=0: registra participantes y postea el mensaje del moderador, sin LLM
+        # rounds=0: registers the participants and posts the moderator's message, with no LLM
         return self.client.post("/orchestrate?rounds=0", json={
             "recipient_id": "qwen_plus", "body": "hola", "sender_id": "miguel", "thread_id": thread})
 
@@ -137,13 +137,13 @@ class TestConcurrentOrchestrationHTTP(unittest.TestCase):
         # 1) Arrancar convA (rounds=0) -> registra participantes y postea en convA
         r = self._orchestrate("convA")
         self.assertEqual(r.status_code, 200)
-        # 2) Simular que convA esta a media orquestacion: un bot tiene el turno y hay cola
+        # 2) Pretend convA is mid-orchestration: a bot holds the turn and the queue is not empty
         self.engine.acquire_turn("qwen_plus", "convA")
         self.engine.add_to_queue("minimax", "convA")
         # 3) Otra conversacion (convB) arranca su orquestacion
         r = self._orchestrate("convB")
         self.assertEqual(r.status_code, 200)
-        # 4) convA quedo INTACTA (antes del fix, convB le robaba el turno y la cola)
+        # 4) convA is UNTOUCHED; before the fix, convB stole its turn and its queue
         self.assertEqual(self.engine.get_current_turn("convA"), "qwen_plus")
         self.assertEqual(self.engine.get_queue("convA"), ["minimax"])
 

@@ -50,9 +50,9 @@ def browser():
         try:
             b = p.chromium.launch(headless=True)
         except Exception as e:
-            # FASE 37.1: playwright instalado pero SIN el binario del navegador (p. ej. en el CI,
-            # que no corre `playwright install`). Antes se saltaba por no tener el paquete; ahora
-            # que el paquete SÍ está (via requirements-dev.txt) hay que saltar también aquí.
+            # playwright installed but WITHOUT the browser binary, which happens in CI when
+            # `playwright install` has not run. It used to skip for lack of the package; now that
+            # the package IS there through requirements-dev.txt, it has to skip here too.
             pytest.skip(f"navegador de playwright no disponible ({str(e)[:60]}); ejecuta `playwright install chromium`")
         yield b
         b.close()
@@ -61,10 +61,10 @@ def browser():
 @pytest.fixture
 def page(browser, server):
     pg = browser.new_page()
-    # FASE 31: en el chat real el usuario esta SIEMPRE logueado, asi el frontend conoce su email
-    # (window.MY_MOD_ID) y reconoce sus propios mensajes como del moderador. El servidor de test
-    # va sin login (dev), donde initSession() no llega a fijar esa identidad; se inyecta la del
-    # usuario dev (DEV_USER: dev@local) para reproducir el estado logueado real.
+    # In the real chat the user is ALWAYS logged in, so the frontend knows their address
+    # (window.MY_MOD_ID) and recognises their own messages as the moderator's. The test server
+    # runs without a login, where initSession() never sets that identity, so the dev user's
+    # identity is injected to reproduce the real logged-in state.
     pg.add_init_script("window.MY_MOD_ID='dev@local';window.MY_NAME='dev';")
     pg.goto(server)
     pg.wait_for_load_state("networkidle")

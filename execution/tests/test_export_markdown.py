@@ -1,9 +1,9 @@
-"""FASE 38.1 — Exportar la conversación a Markdown desde el chat.
+"""Exporting the conversation to Markdown from the chat.
 
-- Guarda de i18n (corre en CI): las claves del menú y del pie existen en ES y EN.
-- Test de navegador (Playwright, se salta en CI sin binario): el botón de descarga abre
-  un menú HTML/Markdown y "Markdown" descarga un .md con la estructura acordada
-  (título, aviso de IA, cabecera por mensaje, cuerpo intacto, pie con el visor recomendado).
+- i18n guard (runs in CI): the menu and footer keys exist in both languages.
+- Browser test (Playwright, skipped in CI without the binary): the download button opens
+  an HTML/Markdown menu, and "Markdown" downloads a .md with the agreed structure
+  (title, AI notice, a header per message, the body untouched, and a footer with the recommended viewer).
 """
 import os
 import sys
@@ -36,10 +36,10 @@ def test_export_menu_y_markdown(browser, server):
     pg.add_init_script("window.MY_MOD_ID='dev@local';window.MY_NAME='dev';")
     pg.goto(server, wait_until="load")
     pg.wait_for_timeout(1000)
-    # inyecta mensajes de prueba en el estado del chat
+    # inject test messages into the chat state
     pg.evaluate("(m)=>{ allMessages=m; currentThread='user_9_Test'; currentLang='es'; }", MSGS)
 
-    # el botón de descarga abre el menú con las dos opciones
+    # the download button opens the menu with both options
     pg.click("#exportBtn")
     pg.wait_for_selector("#exportMenuPopup")
     menu = pg.inner_text("#exportMenuPopup")

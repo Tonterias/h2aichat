@@ -104,7 +104,7 @@ class TestOrchTimes(unittest.TestCase):
         self.assertEqual(r.status_code, 403)
 
     def test_orchestrate_persiste_los_tiempos(self):
-        # rounds=0 (sin LLM): la orquestacion igual persiste su desglose A-E
+        # rounds=0 and no LLM: the orchestration still stores its A-E breakdown
         r = self.client.post("/orchestrate?rounds=0", json={
             "recipient_id": "qwen_plus", "body": "hola", "sender_id": "miguel", "thread_id": "t1"})
         self.assertEqual(r.status_code, 200)
@@ -112,9 +112,9 @@ class TestOrchTimes(unittest.TestCase):
         self.assertGreaterEqual(len(auth.list_orch_times(self.engine)["items"]), 1)
 
     def test_recipient_se_redirige_a_bot_activo(self):
-        # FASE 26: si el moderador manda la bola a un bot que NO esta en los bots activos
-        # (caso: config OpenRouter -> free cae a otro set, pero el front manda a qwen_plus
-        # que sigue registrado), debe redirigir a un bot activo. Si no -> todos skip -> 0 tokens.
+        # If the moderator passes the ball to a bot that is NOT among the active ones, it must
+        # be redirected to an active bot. That happens when the plan falls back to a different
+        # set while the frontend still targets a bot that stays registered. Otherwise: zero tokens.
         cfg = {"qwen": {"provider": "cloud", "model": "qwen3.5-plus", "role": "creativo", "email": "q@b", "max_tokens": 300},
                "minimax": {"provider": "cloud", "model": "minimax-m2.7", "role": "estratega", "email": "m@b", "max_tokens": 300},
                "deepseek": {"provider": "cloud", "model": "deepseek-v4-flash", "role": "analista", "email": "d@b", "max_tokens": 300}}
@@ -130,10 +130,10 @@ class TestOrchTimes(unittest.TestCase):
         self.assertIn(redirects[0]["to"], ["qwen", "minimax", "deepseek"])
 
     def test_orquestacion_ignora_bots_fantasma(self):
-        # FASE 26: un bot registrado que NO esta en bots_config (fantasma de un perfil viejo)
-        # no debe entrar en la conversacion. El orch_time persistido debe contar solo los 3
+        # A registered bot that is NOT in bots_config, a ghost from an old profile, must not
+        # join the conversation. The stored orch_time must count only the three
         # configurados (qwen_plus, minimax, deepseek_flash), no el fantasma.
-        # 1a orquestacion: monta miguel + los 3 bots configurados (como en PROD)
+        # first orchestration: sets up the moderator plus the three configured bots
         self.client.post("/orchestrate?rounds=0", json={
             "recipient_id": "qwen_plus", "body": "setup", "sender_id": "miguel", "thread_id": "tg"})
         # ahora aparece un bot fantasma (de un perfil viejo)
@@ -144,8 +144,8 @@ class TestOrchTimes(unittest.TestCase):
         self.assertEqual(auth.list_orch_times(self.engine)["items"][0]["bots"], 3)
 
     def test_presupuesto_corta_antes_de_504(self):
-        # FASE 26: con presupuesto agotado (0s) la orquestacion cierra LIMPIA (200) antes de
-        # llamar a ningun bot -> nunca llega a los 300s de nginx. Sin LLM, sin coste.
+        # With the budget exhausted (0s) the orchestration closes CLEANLY with a 200 before
+        # calling any bot, so it never reaches nginx's 300s. No LLM, no cost.
         self.engine.set_setting("orchestrate_max_seconds", "0")
         r = self.client.post("/orchestrate?rounds=2", json={
             "recipient_id": "qwen_plus", "body": "hola", "sender_id": "miguel", "thread_id": "tb"})

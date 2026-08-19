@@ -1,10 +1,10 @@
-"""FASE 37.1 — Guarda del sistema de dependencias con versiones fijadas.
+"""Guard for the pinned-dependency setup.
 
-Impide que se rompa la reproducibilidad:
-- que `requirements.txt` / `requirements-dev.txt` existan y estén TODOS fijados con `==`,
-- que la versión instalada coincida con la fijada (sin deriva),
-- y, lo más importante, que **todo lo que el código de la app importa esté declarado**
-  (para que "en mi máquina funciona porque lo instalé a mano" no vuelva a pasar).
+It keeps reproducibility from breaking:
+- `requirements.txt` and `requirements-dev.txt` exist and are ALL pinned with `==`,
+- the installed version matches the pinned one, with no drift,
+- and, most importantly, **everything the app code imports is declared**, so that
+  "it works on my machine because I installed it by hand" cannot happen again.
 """
 import ast
 import importlib.metadata as im
@@ -15,12 +15,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent  # raíz del repo
 EXEC = ROOT / "execution"
 
-# nombre en requirements -> nombre con el que se importa
+# name in requirements -> name it is imported by
 PKG_TO_IMPORT = {"pyjwt": "jwt", "pyyaml": "yaml", "psycopg[binary]": "psycopg"}
 
 
 def _deps(path: Path):
-    """Líneas de dependencia (paquete==version), ignorando comentarios y `-r`."""
+    """Dependency lines (package==version), ignoring comments and `-r`."""
     out = []
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -61,12 +61,12 @@ class TestRequirements(unittest.TestCase):
                 self.assertEqual(inst, ver, f"{name}: instalado {inst} != fijado {ver} ({f.name})")
 
     def test_todo_import_de_la_app_esta_declarado(self):
-        """Cada módulo de terceros que importa el código de la app debe estar en requirements.txt."""
+        """Every third-party module the app code imports must be in requirements.txt."""
         declared = set()
         for dep in _deps(self.runtime):
             pkg = dep.split("==")[0].lower()
             declared.add(PKG_TO_IMPORT.get(pkg, pkg.split("[")[0]))
-        # módulos locales (ficheros y subpaquetes de execution/)
+        # local modules (files and subpackages of execution/)
         local = {p.stem for p in EXEC.rglob("*.py")}
         local |= {d.name for d in EXEC.iterdir() if d.is_dir()}
         stdlib = set(sys.stdlib_module_names)
