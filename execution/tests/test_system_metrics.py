@@ -1,4 +1,4 @@
-"""FASE 28 — Tests del módulo de métricas de sistema y los contadores en vuelo."""
+"""Tests for the system metrics module and the in-flight counters."""
 import sys
 import unittest
 from pathlib import Path
@@ -14,7 +14,7 @@ class TestSystemMetrics(unittest.TestCase):
         m = system_metrics.read_system_metrics()
         for k in ("ram_pct", "cpu_pct", "disk_used_pct", "disk_free_pct", "load1", "cpu_count"):
             self.assertIn(k, m)
-        # el disco SIEMPRE se puede medir (stdlib), aunque no haya psutil
+        # disk can ALWAYS be measured with the standard library, even without psutil
         self.assertIsNotNone(m["disk_used_pct"])
         self.assertGreaterEqual(m["disk_used_pct"], 0)
         self.assertLessEqual(m["disk_used_pct"], 100)
@@ -49,7 +49,7 @@ class TestSystemMetrics(unittest.TestCase):
 
 class TestInflightCounters(unittest.TestCase):
     def setUp(self):
-        # reset de los contadores entre tests
+        # reset the counters between tests
         with api_server._inflight_lock:
             api_server._inflight["orch"] = 0
             api_server._inflight["requests"] = 0
@@ -97,7 +97,7 @@ class TestHealthData(unittest.TestCase):
         hist = self.auth.list_system_health(self.engine, hours=24)
         self.assertEqual(len(hist["items"]), 2)
         peak = self.auth.get_system_peak(self.engine)
-        # el pico guarda el máximo CON SUS CONDICIONES (matiz del PO)
+        # the peak stores the maximum along WITH ITS CONDITIONS
         self.assertEqual(peak["capacity_pct"], 95)
         self.assertEqual(peak["inflight_orch"], 6)
         self.assertEqual(peak["inflight_requests"], 10)
@@ -173,7 +173,7 @@ class TestHealthEndpoints(unittest.TestCase):
         self.assertEqual(r.status_code, 403)
 
     def test_restart_admin_ok_sin_matar_el_proceso(self):
-        # Desde TestClient NO debe enviar SIGTERM (el test seguiría vivo).
+        # From TestClient it must NOT send SIGTERM: the test process would stay alive.
         r = self.client.post("/api/admin/restart")
         self.assertEqual(r.status_code, 200)
         self.assertTrue(r.json()["ok"])
@@ -184,7 +184,7 @@ class TestHealthEndpoints(unittest.TestCase):
         self.assertEqual(r.status_code, 403)
 
     def test_staging_status_devuelve_estado(self):
-        # En el entorno de test no hay systemd; debe degradar con gracia (no romper).
+        # There is no systemd in the test environment, so it must degrade gracefully.
         r = self.client.get("/api/admin/staging/status")
         self.assertEqual(r.status_code, 200)
         d = r.json()
@@ -200,7 +200,7 @@ class TestHealthEndpoints(unittest.TestCase):
         self.assertEqual(self.client.post("/api/admin/staging/stop", headers=h).status_code, 403)
 
     def test_reboot_admin_ok_sin_reiniciar(self):
-        # Desde TestClient NO debe reiniciar la maquina de verdad.
+        # From TestClient it must NOT actually reboot the machine.
         r = self.client.post("/api/admin/reboot")
         self.assertEqual(r.status_code, 200)
         self.assertTrue(r.json()["ok"])
@@ -267,12 +267,12 @@ class TestAlerts(unittest.TestCase):
         self.assertIn("ram", sent)
         self.assertEqual(len(telegram_sender.SENT_TELEGRAM), 2)
         self.assertIn("[H2AI alerta]", telegram_sender.SENT_TELEGRAM[0]["text"])
-        # mismo nivel y dentro del intervalo de recordatorio -> no reenvía
+        # same level and still inside the reminder interval -> nothing is sent
         sent2 = api_server._health_alert_check(self.engine, sample=rojo)
         self.assertEqual(sent2, [])
 
     def test_escalado_salta_el_silencio(self):
-        # aviso -> crítico de forma inmediata: el empeoramiento NO espera 30 min
+        # warning -> critical immediately: getting worse does NOT wait 30 minutes
         sent1 = api_server._health_alert_check(self.engine, sample=self._sample(ram_pct=88))
         self.assertEqual(sent1, ["ram"])
         self.assertIn("RAM aviso", self._last_text())
@@ -282,17 +282,17 @@ class TestAlerts(unittest.TestCase):
 
     def test_mejora_parcial_no_reavisa(self):
         api_server._health_alert_check(self.engine, sample=self._sample(ram_pct=97))  # crítico
-        # baja a "aviso" pero NO por debajo de la recuperación (75) -> silencio
+        # drops to "warning" but NOT below the recovery line (75) -> silence
         sent = api_server._health_alert_check(self.engine, sample=self._sample(ram_pct=88))
         self.assertEqual(sent, [])
-        # vuelve a crítico sin haberse recuperado -> mismo nivel del episodio, no reavisa
+        # back to critical without having recovered -> same level of the episode, no new alert
         sent2 = api_server._health_alert_check(self.engine, sample=self._sample(ram_pct=97))
         self.assertEqual(sent2, [])
 
     def test_recuperacion_y_recaida(self):
         import telegram_sender
         api_server._health_alert_check(self.engine, sample=self._sample(ram_pct=97))  # crítico
-        # baja por debajo de la línea de recuperación (75) -> aviso de recuperación ✅
+        # falls below the recovery line (75) -> a recovery notice
         sent_rec = api_server._health_alert_check(self.engine, sample=self._sample(ram_pct=40))
         self.assertEqual(sent_rec, ["ram"])
         self.assertIn("recuperada", self._last_text())

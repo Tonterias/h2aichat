@@ -7,10 +7,10 @@ import pytest
 
 BASE = "http://127.0.0.1:8765"
 
-# FASE 31: el moderador es el usuario logueado (su email), no el id fijo 'miguel'. En el
-# servidor de test (modo dev) el usuario es DEV_USER -> email 'dev@local'. `/message/send`
-# solo acepta como remitente moderador a un participante moderador REGISTRADO, y `/orchestrate`
-# registra ese email; por eso los mensajes del moderador se mandan con este id.
+# The moderator is the logged-in user (their email), not a fixed id. On the test server
+# (dev mode) that user is DEV_USER, with the address 'dev@local'. `/message/send` only
+# accepts a REGISTERED moderator participant as the sender, and `/orchestrate` registers
+# that address, which is why the moderator's messages are sent with this id.
 MODERATOR = "dev@local"
 
 
@@ -178,8 +178,8 @@ def test_agent_bubbles_alternate(page):
         assert row.locator(".bubble-time").is_visible()
 
 def test_bottom_bar_visible_y_dentro_del_viewport(page):
-    """FASE 20.1-UX2 (bug PO): la barra de escribir debe verse y quedar DENTRO de la
-    pantalla. El bug del 100vh la empujaba fuera del viewport en movil."""
+    """The compose bar must be visible and stay INSIDE the screen. A 100vh bug used to
+    push it out of the viewport on mobile."""
     bar = page.locator(".bottom-bar")
     assert bar.is_visible()
     box = bar.bounding_box()
@@ -188,7 +188,7 @@ def test_bottom_bar_visible_y_dentro_del_viewport(page):
         f"barra fuera del viewport: fondo en {box['y']+box['height']}, alto pantalla {vh}"
 
 def test_bottom_bar_visible_en_movil(page):
-    """La barra de escribir tambien debe verse en viewport movil (no quedar cortada)."""
+    """The compose bar must also be visible in a mobile viewport, not cut off."""
     page.set_viewport_size({"width": 390, "height": 740})
     page.wait_for_timeout(300)
     bar = page.locator(".bottom-bar")
@@ -199,8 +199,8 @@ def test_bottom_bar_visible_en_movil(page):
     assert box["y"] + box["height"] <= 741, "barra cortada en movil"
 
 def test_colapsador_cierra_menu_en_movil(page):
-    """Bug PO 2026-06-13: en movil el boton de colapsar debe CERRAR el overlay del menu
-    (antes aplicaba .collapsed, que en movil no hace nada y el menu quedaba abierto)."""
+    """On mobile the collapse button must CLOSE the menu overlay. It used to apply
+    .collapsed, which does nothing on mobile, leaving the menu open."""
     page.set_viewport_size({"width": 390, "height": 740})
     page.wait_for_timeout(200)
     page.evaluate("toggleSidebar()")  # abrir overlay
@@ -212,7 +212,7 @@ def test_colapsador_cierra_menu_en_movil(page):
         "el colapsador no cerro el menu en movil"
 
 def test_coletilla_legal_bajo_pregunta(page):
-    """PO 2026-06-13: aviso legal bajo cada pregunta del moderador (se lee durante la espera)."""
+    """Legal notice under each moderator question, read while waiting for the answers."""
     setup_test_data()
     page.reload()
     page.wait_for_load_state("networkidle")
@@ -237,7 +237,7 @@ def test_thread_selector_populated(page):
     assert count >= 1
 
 def test_export_usa_diseno_whatsapp(page):
-    """PO 2026-06-13: la conversacion exportada usa el mismo diseno de burbuja que el
+    """The exported conversation uses the same bubble design as the
     chat de produccion (cabecera+cuerpo+hora), no la estructura vieja msg-header."""
     setup_test_data()
     page.reload()
@@ -290,9 +290,9 @@ def test_dashboard_turn_sequence(page):
 
 # ---------------------------------------------------------------------------
 # User preferences modal
-# El engranaje (⚙ #settingsBtn) abre las PREFERENCIAS DEL USUARIO (rondas/tokens/
-# creatividad/IAs del plan). La configuracion de ADMIN se movio al panel /admin
-# (ya no vive en el chat), asi que estos tests cubren el modal real de hoy.
+# The gear (#settingsBtn) opens the USER's PREFERENCES: rounds, tokens, creativity and
+# the AIs in their plan. ADMIN configuration moved to the /admin panel and no longer
+# lives in the chat, so these tests cover the dialog as it is today.
 # ---------------------------------------------------------------------------
 
 def test_userprefs_opens(page):
@@ -323,7 +323,7 @@ def test_userprefs_save_rounds(page):
     page.click("#settingsBtn")
     page.wait_for_selector("#userPrefsModal[style*='flex']", timeout=5000)
 
-    # el campo acepta un valor dentro del rango del plan y Guardar completa (cierra el modal)
+    # the field accepts a value within the plan's range and saving completes, closing the dialog
     page.fill("#prefsRounds", "2")
     assert page.locator("#prefsRounds").input_value() == "2"
     page.click("#prefsSaveBtn")
@@ -338,7 +338,7 @@ def test_userprefs_lists_models(page):
     page.click("#settingsBtn")
     page.wait_for_selector("#userPrefsModal[style*='flex']", timeout=5000)
     page.wait_for_timeout(300)
-    # el catalogo de IAs del plan se ofrece como casillas para elegir
+    # the plan's AI catalogue is offered as checkboxes to pick from
     assert page.locator("#prefsModels .pmodel").count() >= 1
 
 
@@ -454,9 +454,9 @@ def test_thread_switch_filters_messages(page):
 # ---------------------------------------------------------------------------
 
 def test_dashboard_renders_stats(page):
-    # La pestaña Dashboard se activa y pinta sus tarjetas de estadísticas (turnos, tiempo
-    # medio, participantes, intervenciones). No se comprueba actividad de bots porque el
-    # sembrado es rounds=0 (sin LLM): eso lo cubren las pruebas de orquestación real.
+    # The Dashboard tab activates and paints its statistics cards: turns, average time,
+    # participants and interventions. Bot activity is not checked because the seeding runs
+    # with rounds=0 and no LLM: that is covered by the real orchestration tests.
     setup_test_data()
     page.reload()
     page.wait_for_load_state("networkidle")
@@ -518,13 +518,13 @@ def test_collapse_btn_abre_sidebar_en_movil(browser, server):
     page.goto(server)
     page.wait_for_load_state("networkidle")
 
-    # Bug PO: habia dos iconos (hamburguesa + colapsar). La hamburguesa se quito.
+    # There used to be two icons, a hamburger and a collapse button. The hamburger is gone.
     assert page.locator(".hamburger").count() == 0
 
     sidebar = page.locator(".sidebar")
     assert "open" not in (sidebar.get_attribute("class") or "")
 
-    # El boton de la franja izquierda abre el overlay en movil...
+    # The button on the left strip opens the overlay on mobile...
     page.locator(".collapse-btn").click()
     page.wait_for_timeout(400)
     assert "open" in (sidebar.get_attribute("class") or "")
