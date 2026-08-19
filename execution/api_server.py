@@ -1267,7 +1267,7 @@ def serve_chat():
 
 @app.get("/preguntas", response_class=HTMLResponse)
 def serve_bank(request: Request):
-    """FASE 36.2 (T3) — banco de preguntas: indice publico de TODAS las conversaciones."""
+    """The question bank: a public index of ALL conversations."""
     import public_index
     lang = resolve_web_lang(request.query_params.get("lang"), request.cookies.get("web_lang"),
                             request.headers.get("accept-language"))
@@ -1317,9 +1317,9 @@ def serve_website(request: Request):
 
 
 def _resolve_conversation(path: str):
-    """FASE 33.1 T5b: resuelve una conversación DENTRO de conversations/, con subcarpetas por
-    idioma (en/, y a futuro es/). Anti-traversal: el fichero debe estar contenido en
-    conversations/. Devuelve el Path si existe y es .html; si no, None."""
+    """Resolves a conversation INSIDE conversations/, which has one subfolder per language.
+    Anti-traversal: the file must be contained in conversations/. Returns the Path if it
+    exists and is an .html, otherwise None."""
     base = (Path(__file__).parent.parent / "conversations").resolve()
     # Spanish pages moved under es/. We try the path as given and then under es/, so the
     # old flat URLs handed to the press or saved as bookmarks keep resolving.
@@ -1344,8 +1344,8 @@ def robots_txt():
 
 @app.get("/sitemap.xml")
 def sitemap_xml():
-    """FASE 36 (T5) — mapa del sitio generado desde la galeria (fuente unica): se regenera
-    solo al anadir conversaciones. Incluye landing (ES/EN) y las conversaciones curadas."""
+    """Sitemap generated from the gallery, the single source: it regenerates on its own when
+    a conversation is added. Covers the landing pages in both languages and the curated conversations."""
     from urllib.parse import quote
     base = email_sender.base_url()
 
@@ -1378,8 +1378,8 @@ def sitemap_xml():
 
 
 def _seo_alternates(rel, base_url):
-    """FASE 36 (T6) — hreflang SOLO para pares de traduccion literal reales (p. ej. la
-    fundacional). El resto de la galeria son conversaciones distintas por idioma, no
+    """hreflang ONLY for real literal translation pairs, such as the founding dialogue.
+    The rest of the gallery holds different conversations per language, not translations,
     traducciones: enlazarlas seria incorrecto."""
     other = i18n.SEO_HREFLANG_PAIRS.get(rel)
     if not other:
@@ -1396,15 +1396,15 @@ def _seo_alternates(rel, base_url):
 
 @app.get("/conversations/{path:path}", response_class=HTMLResponse)
 def serve_conversation(path: str, request: Request):
-    # Se inyecta la barra de navegacion aqui en vez de modificar los 20+ archivos HTML exportados: un solo punto de cambio.
+    # The navigation bar is injected here instead of editing the 20-plus exported HTML files: one place to change.
     # FASE 33.1 T5b: subcarpetas por idioma (en/) + anti-traversal en _resolve_conversation.
     conv_path = _resolve_conversation(path)
     if conv_path is not None:
         html = conv_path.read_text(encoding="utf-8")
         # FASE 36.2 (T5): modo EMBED (`?embed=1`) -> pagina "desnuda" para incrustar en blogs.
         _embed = request.query_params.get("embed") == "1"
-        # FASE 36 (SEO): reescribimos <head>+<h1> en el MISMO punto que la barra (un solo
-        # sitio). Los textos salen de la galeria (fuente unica). Curada -> SEO completo e
+        # The <head> and <h1> are rewritten at the SAME point as the bar, so there is a single
+        # place. The texts come from the gallery. Curated -> full SEO and indexable;
         # indexable; no curada (Nivel 0: pruebas/duplicados) -> noindex.
         _conv_base = (Path(__file__).parent.parent / "conversations").resolve()
         _rel = conv_path.relative_to(_conv_base).as_posix()
@@ -1417,11 +1417,11 @@ def serve_conversation(path: str, request: Request):
                                   alternates=_seo_alternates(_rel, _base_url))
         else:
             html = seo.inject_noindex(html)
-        # La pagina embebida NO debe indexarse (canonical ya apunta a la version normal).
+        # The embedded page must NOT be indexed; its canonical already points at the normal one.
         if _embed:
             html = seo.inject_noindex(html)
-        # Pulgares (hallazgo UAT PO 2026-06-12): mismo sistema localStorage que la web
-        # estatica (conversacion.html) — sin backend, sin cookies, cada visitante ve su voto.
+        # Thumbs: the same localStorage scheme as the static site (conversacion.html).
+        # No backend, no cookies; each visitor sees their own vote.
         nav = """<div style="position:sticky;top:0;z-index:100;background:rgba(246,245,242,0.9);backdrop-filter:blur(12px);border-bottom:1px solid #e0e0e0;padding:10px 24px;display:flex;align-items:center;gap:12px;font-family:system-ui,sans-serif">
   <a href="/web" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:#1a1a1a;font-weight:700;font-size:14px">
     <img src="/static/logo.png" alt="H2AI Chat" style="width:26px;height:26px;object-fit:contain"> H2AI Chat
@@ -1460,12 +1460,12 @@ def serve_conversation(path: str, request: Request):
   load();
 })();
 </script>"""
-        # FASE 33.1: el boton "Volver" de la barra inyectada se traduce segun el idioma de la conversacion (en/ -> EN).
+        # The injected bar's "Back" button follows the language of the conversation (en/ -> EN).
         _conv_lang = "en" if path.startswith("en/") else "es"
         _en = _conv_lang == "en"
         nav = nav.replace("__BACK__", "Back" if _en else "Volver")
         nav = nav.replace("__CONV_ID__", json.dumps(conv_path.stem))
-        # FASE 36.2 (T7): boton "Insertar" (embed) en la barra + recuadro con el <iframe>.
+        # An "Embed" button on the bar, plus a box holding the <iframe>.
         _embed_url = _base_url + "/conversations/" + _rel + "?embed=1"
         _iframe = ('<iframe src="%s" width="100%%" height="600" '
                    'style="border:1px solid #eee;border-radius:8px" loading="lazy"></iframe>' % _embed_url)
@@ -1490,16 +1490,16 @@ def serve_conversation(path: str, request: Request):
             'try{navigator.clipboard.writeText(t.value);}catch(e){document.execCommand("copy");}}</script>'
             % (_html_escape(_iframe), _copy_lbl)
         )
-        # Favicon en la pestana (los HTML exportados no lo traen): inyectado aqui, un solo punto.
+        # Tab favicon: the exported HTML files do not carry one, so it is injected here, in one place.
         if "</head>" in html:
             html = html.replace("</head>", '<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">'
                                 '<meta name="ai-generated" content="true"></head>', 1)
-        # FASE 35 (AI Act Art. 50): aviso de contenido generado por IA, arriba del cuerpo (scrollea con la pagina).
+        # AI Act article 50: AI-generated content notice, at the top of the body, scrolling with the page.
         _ai_notice = ('<div style="background:#FFF3D6;border-bottom:1px solid #EBCF8A;color:#6B4E00;'
                       'font-size:12px;line-height:1.5;padding:9px 18px;text-align:center">&#9888; %s</div>'
                       % TRANSLATIONS.get(_conv_lang, TRANSLATIONS["es"]).get("ai.notice", ""))
         if _embed:
-            # Modo embed: sin barra ni votos; solo el aviso AI Act + un pie discreto de vuelta.
+            # Embed mode: no bar and no votes, just the AI Act notice and a discreet footer link back.
             _foot = ('<div style="font-family:system-ui,sans-serif;text-align:center;padding:10px;'
                      'font-size:12px;color:#888;border-top:1px solid #eee">'
                      '<a href="%s" target="_blank" rel="noopener" style="color:#E8186E;text-decoration:none;'
@@ -1564,9 +1564,9 @@ def get_participants():
 @app.get("/api/all-messages")
 def get_all_messages(request: Request, thread_id: str = None):
     user = getattr(request.state, "user", None)
-    # FASE 20.1 (hallazgo UAT PO): el nombre del hilo se traduce tambien al LEER, igual
-    # que al escribir, y se devuelve el canonico para que el frontend se sincronice.
-    # Sin esto, la carga inicial pedia "general" y el usuario veia la pantalla en blanco.
+    # The thread name is translated on READ as well as on write, and the canonical name is
+    # returned so the frontend can sync. Without this the initial load asked for "general"
+    # and the user got a blank screen.
     scoped = auth.scope_thread(user, thread_id) if thread_id else None
     state = engine.read_state()
     participants = state.get("participants", {})
@@ -1666,7 +1666,7 @@ def delete_thread(thread_id: str, request: Request):
 
 
 ORCHESTRATE_SYSTEM = "Eres {bot_id}, un asistente en una conversacion entre varios agentes. EMPIEZA tu respuesta con ({bot_id}) y TERMINALA con (/{bot_id}). No consensuéis ni discutáis de entrada o gratuitamente, criticad a las otras IAs, pero con educación y escribid con un lenguaje sencillo, sin florituras (todo en el idioma de la pregunta, tratando de no repetiros y cuidando las tildes)."
-# Version en ingles: se usa cuando la UI esta en ingles (req.lang=='en') para que las IAs respondan en ingles
+# English version, used when the UI is in English (req.lang=='en') so the AIs answer in English.
 ORCHESTRATE_SYSTEM_EN = "You are {bot_id}, an assistant in a conversation between several agents. START your reply with ({bot_id}) and END it with (/{bot_id}). Don't jump to conclusions or argue immediately or gratuitously. Critique other AIs, but do so politely and in simple language, without embellishment (all in the language of the question and try to not repeat yourself)."
 
 BOTS_CONFIG_DEFAULT = {
@@ -1676,28 +1676,28 @@ BOTS_CONFIG_DEFAULT = {
 }
 
 # FASE 40.2: en el paquete self-host 100% local (HUMANIA_LOCAL=1, docker-compose) el debate
-# arranca DE FABRICA con un agente que usa tu servidor de modelos (Ollama/LM Studio), para que
-# funcione sin configurar nada. El id "local" es el que la UI muestra como nombre -> "Local".
-# En PROD (sin HUMANIA_LOCAL) NO aplica: alli siguen los 3 bots de nube -> cambio NO-OP en PROD.
+# ships READY with an agent pointing at your own model server (Ollama / LM Studio), so it
+# works with no configuration. The id "local" is what the UI shows as the name.
+# Without HUMANIA_LOCAL this does not apply: the three cloud bots stay as they are.
 BOTS_CONFIG_LOCAL_DEFAULT = {
     "local": {"provider": "local", "model": "llama3.2", "role": "analista", "email": "local@bot.local", "max_tokens": 400},
 }
-# Entrada de catalogo equivalente (para que el agente "Local" aparezca como disponible en /admin).
+# Matching catalogue entry, so the "Local" agent shows up as available in /admin.
 LOCAL_CATALOG_ENTRY = {"id": "local", "label": "Local", "model": "llama3.2", "provider": "local",
                        "role": "analista", "email": "local@bot.local", "max_tokens": 400}
 
 
 def _is_local_host() -> bool:
-    """True si corremos como self-host local de un solo usuario (docker-compose fija HUMANIA_LOCAL=1)."""
+    """True when running as a single-user local self-host (docker-compose sets HUMANIA_LOCAL=1)."""
     return os.environ.get("HUMANIA_LOCAL") == "1"
 
 
 def _default_bots_config() -> dict:
-    """Bots activos por defecto: en self-host local, un agente 'Local' listo; en el resto, los de nube."""
+    """Bots active by default: a ready 'Local' agent when self-hosting, the cloud ones otherwise."""
     return BOTS_CONFIG_LOCAL_DEFAULT if _is_local_host() else BOTS_CONFIG_DEFAULT
 
 # Ids alineados al catalogo (qwen_plus/minimax/deepseek_flash) para no crear bots
-# "fantasma" al reaplicar el perfil (antes usaba qwen/deepseek, ids divergentes).
+# ghost bots when the profile is reapplied; the ids used to diverge.
 PROFILE_OPENCODE = {
     "qwen_plus":      {"provider": "cloud", "model": "qwen3.7-plus",      "role": "creativo",  "email": "qwen_plus@bot.humania.local",      "max_tokens": 800},
     "minimax":        {"provider": "cloud", "model": "minimax-m2.7",      "role": "estratega", "email": "minimax@bot.humania.local",        "max_tokens": 800},
@@ -1712,8 +1712,8 @@ PROFILE_OPENROUTER = {
 
 PROFILES = {"opencode": PROFILE_OPENCODE, "openrouter": PROFILE_OPENROUTER}
 
-# FASE 27 (pieza B): catálogo de IAs disponibles. El usuario elige las suyas de aquí,
-# filtradas por su plan (proveedor permitido + nº máximo). El admin podrá curarlo más adelante.
+# Catalogue of available AIs. The user picks theirs from here, filtered by their plan
+# (allowed provider and maximum count). The admin will be able to curate it later.
 MODEL_CATALOG_DEFAULT = [
     {"id": "qwen_plus",      "label": "Qwen",     "model": "qwen3.7-plus",                "provider": "cloud",      "role": "creativo",  "email": "qwen_plus@bot.humania.local",      "max_tokens": 800},
     {"id": "minimax",        "label": "MiniMax",  "model": "minimax-m2.7",                "provider": "cloud",      "role": "estratega", "email": "minimax@bot.humania.local",        "max_tokens": 800},
@@ -1736,7 +1736,7 @@ def get_model_catalog(engine):
                 return c
         except json.JSONDecodeError:
             pass
-    # En self-host local, ofrecer el agente "Local" ya listo al frente del catalogo.
+    # When self-hosting locally, put the ready-made "Local" agent at the front of the catalogue.
     if _is_local_host():
         return [LOCAL_CATALOG_ENTRY] + MODEL_CATALOG_DEFAULT
     return MODEL_CATALOG_DEFAULT
@@ -1766,7 +1766,7 @@ normalize_ghost_bots(engine)
 
 
 def effective_user_bots(engine, user, global_bots_config):
-    """Pieza B: si el usuario eligió IAs (y su plan las permite), usa esas; si no, el global.
+    """If the user picked AIs and their plan allows them, use those; otherwise the global set.
     Filtra por proveedor (free/basic sin OpenRouter) y por el nº máximo del plan."""
     plan = user.get("plan") or "free"
     all_limits = get_plan_limits(engine)
@@ -1813,17 +1813,17 @@ def assert_no_free_models(bots_config: dict) -> None:
         )
 
 
-# ── FASE 32: editor del catálogo de IAs en /admin ───────────────────────────
+# ── Editor for the AI catalogue, in /admin ──────────────────────────────────
 CATALOG_PROVIDERS = ("cloud", "openrouter", "local")  # FASE 40.2: 'local' = tu servidor (LM Studio/Ollama)
 CATALOG_TOKENS_RANGE = (64, 4000)
 CATALOG_ROLES = ("creativo", "estratega", "analista")
-# OpenRouter tiene ~300 modelos y cobra por token -> lista CURADA (vetados). OpenCode
-# se lista en vivo via GET /models (tarifa plana, todos OK).
+# OpenRouter has around 300 models and charges per token, so the list is CURATED.
+# OpenCode is listed live through GET /models: flat rate, all of them fine.
 OPENROUTER_SUGGESTIONS = ["openai/gpt-5.4", "anthropic/claude-sonnet-4.6", "google/gemini-3.5-flash"]
 
 
 def validate_catalog(entries):
-    """Valida y NORMALIZA el catálogo. Lanza HTTP 400 si algo no cuadra."""
+    """Validates and NORMALISES the catalogue. Raises HTTP 400 if anything is off."""
     import re as _re
     if not isinstance(entries, list) or not entries:
         raise HTTPException(status_code=400, detail="El catálogo no puede estar vacío.")
@@ -1884,7 +1884,7 @@ def admin_reset_catalog(request: Request):
 
 @app.post("/api/admin/restart")
 def admin_restart(request: Request):
-    """Reinicia el proceso del servidor. Seguro: systemd (Restart=always) lo levanta
+    """Restarts the server process. Safe: systemd (Restart=always) brings it back
     en segundos. SIGTERM -> uvicorn cierra con gracia (espera a lo que esté en vuelo)."""
     _require_admin(request)
     is_test = getattr(request.client, "host", None) == "testclient"
@@ -1900,12 +1900,12 @@ def admin_restart(request: Request):
     return {"ok": True, "message": "Reiniciando el servidor… volverá en unos segundos."}
 
 
-# ── FASE 30: control del servicio de PRE-PROD (staging) desde /admin ─────────────
+# ── Control of the staging service from /admin ──────────────────────────────
 STAGING_SERVICE = "humania-staging"
 
 
 def _staging_systemctl(action: str):
-    """Ejecuta systemctl sobre el servicio de staging. 'status' (is-active) no necesita
+    """Runs systemctl against the staging service. 'status' (is-active) needs no
     root; 'start'/'stop' van con `sudo -n` (requiere una entrada sudoers NOPASSWD acotada
     a estos comandos). Devuelve (returncode, stdout, stderr); nunca lanza."""
     import subprocess
@@ -1952,7 +1952,7 @@ def admin_staging_stop(request: Request):
 
 @app.post("/api/admin/reboot")
 def admin_reboot(request: Request):
-    """Reinicia la MÁQUINA entera (droplet) via `sudo -n systemctl reboot`. Requiere sudoers
+    """Reboots the WHOLE machine through `sudo -n systemctl reboot`. Needs a sudoers
     NOPASSWD acotado. PROD y PRE vuelven solos (servicios habilitados en el boot)."""
     _require_admin(request)
     if getattr(request.client, "host", None) == "testclient":
@@ -1971,7 +1971,7 @@ def admin_reboot(request: Request):
 
 @app.get("/api/admin/provider-models")
 def admin_provider_models(request: Request, provider: str = "cloud"):
-    """Modelos para el desplegable al añadir IA. OpenRouter: lista curada; OpenCode: en vivo."""
+    """Models for the dropdown when adding an AI. OpenRouter: curated list. OpenCode: live."""
     _require_admin(request)
     if provider == "openrouter":
         return {"models": OPENROUTER_SUGGESTIONS}
@@ -2001,10 +2001,10 @@ SETTINGS_DEFAULTS = {
     "llm_system_prompt": ORCHESTRATE_SYSTEM,
     "llm_system_prompt_en": ORCHESTRATE_SYSTEM_EN,
     "bots_config": json.dumps(_default_bots_config()),
-    # FASE 40.1: dirección (global) del servidor de modelos LOCAL, compatible con OpenAI.
-    # Sirve para LM Studio (:1234) y Ollama (:11434). La usan los agentes con provider="local".
-    # FASE 40.2: la variable de entorno LOCAL_SERVER_URL fija el default (docker-compose la
-    # apunta al servicio ollama: http://ollama:11434/v1) para que funcione "de fábrica".
+    # Global address of the LOCAL model server, OpenAI-compatible.
+    # Works for LM Studio (:1234) and Ollama (:11434). Used by agents with provider="local".
+    # The LOCAL_SERVER_URL environment variable sets the default; docker-compose points it
+    # at the ollama service (http://ollama:11434/v1) so it works out of the box.
     "local_server_url": os.environ.get("LOCAL_SERVER_URL", "http://localhost:1234/v1"),
 }
 
@@ -2018,7 +2018,7 @@ def get_settings():
     return {"settings": engine.get_all_settings(SETTINGS_DEFAULTS)}
 
 
-# Topes sanos para la config global de orquestacion (PO 2026-06-19): evitan
+# Sane caps for the global orchestration settings. They keep a careless value from
 # valores absurdos que disparan coste/tiempo (p. ej. 99 rondas x 4000 tokens). (min, max) inclusive.
 SETTINGS_NUMERIC_LIMITS = {
     "orchestrate_rounds": (1, 5),
@@ -2032,15 +2032,15 @@ SETTINGS_NUMERIC_LIMITS = {
 }
 
 
-# FASE 27: límites MÁXIMOS por plan. El admin los edita desde el panel; cada usuario
-# podrá ajustar sus variables SIN superar el máximo de su plan (la aplicación de estos
-# límites a las conversaciones es una tarea posterior; esto es la tabla editable).
+# MAXIMUM limits per plan. The admin edits them from the panel, and each user can
+# tune their own settings WITHOUT going over their plan's maximum. Enforcing these
+# limits on conversations comes later; this is the editable table.
 PLAN_LIMITS_DEFAULT = {
     "free":    {"max_rounds": 3,  "openrouter": False, "max_models": 3,  "max_context": 3,  "max_tokens": 800,  "max_creativity": 2},
     "basic":   {"max_rounds": 5,  "openrouter": False, "max_models": 5,  "max_context": 4,  "max_tokens": 1200, "max_creativity": 2},
     "premium": {"max_rounds": 20, "openrouter": True,  "max_models": 10, "max_context": 10, "max_tokens": 2000, "max_creativity": 2},
 }
-# Campos de la tabla: (clave, etiqueta, tipo). Añadir más filas es solo ampliar esta lista.
+# Table fields: (key, label, type). Adding rows is just extending this list.
 PLAN_LIMIT_FIELDS = [
     ("max_rounds",     "Máx. rondas",                                "int"),
     ("openrouter",     "Acceso a OpenRouter",                         "bool"),
@@ -2057,7 +2057,7 @@ CREATIVITY_LABELS = ["Enfocada", "Equilibrada", "Creativa"]
 
 
 def get_plan_limits(engine) -> dict:
-    """Límites por plan guardados (o los por defecto). Se completa lo que falte con el default."""
+    """Stored per-plan limits, falling back to the defaults for anything missing."""
     raw = engine.get_setting("plan_limits")
     stored = {}
     if raw:
@@ -2073,7 +2073,7 @@ def get_plan_limits(engine) -> dict:
 
 
 def effective_user_config(engine, user, settings) -> dict:
-    """FASE 27: la config que se USA en una conversación = la preferencia del usuario, acotada
+    """The settings a conversation actually USES: the user's preference, bounded
     al máximo de su plan; si el usuario no ha elegido, cae al ajuste global. Devuelve los valores
     finales (rondas, tokens, temperatura) + los límites del plan (para que el engranaje los muestre)."""
     plan = (user.get("plan") or "free")
@@ -2175,8 +2175,8 @@ def load_profile(request: Request, profile: str = "opencode"):
                          (bot_id, cfg["role"], "bot", cfg["email"], cfg["provider"], bot_id))
         conn.execute("UPDATE participants SET status='inactive' WHERE type='bot' AND id NOT IN ({})".format(','.join('?'*len(new_bots))),
                      list(new_bots.keys()))
-        # FASE 31: el moderador ya no es un participante global 'miguel'; se registra por-usuario
-        # (su email) en /orchestrate. Aqui no se inserta ningun moderador.
+        # The moderator is no longer a global 'miguel' participant: they are registered per user
+        # (by their email) in /orchestrate. No moderator is inserted here.
         conn.commit()
     except Exception:
         conn.rollback()
@@ -2262,7 +2262,7 @@ def get_languages():
 
 @app.post("/orchestrate/stop")
 def stop_orchestrate(request: Request, thread_id: str = Query("general")):
-    # FASE 24: detener SOLO la conversacion del usuario (su hilo), no la global
+    # Stop ONLY this user's conversation (their thread), not the global one.
     user = getattr(request.state, "user", None) or dict(auth.DEV_USER)
     thread = auth.scope_thread(user, thread_id)
     state = engine.read_state(thread)
@@ -2292,15 +2292,15 @@ def orchestrate(req: MessageRequest, request: Request, rounds: int = Query(None)
     muestra los mensajes por su polling y consulta /api/orchestration-status. Con
     ?wait=1 corre síncrono y devuelve el resultado completo (lo usan los tests)."""
     user = getattr(request.state, "user", None) or dict(auth.DEV_USER)
-    # Validaciones síncronas: el error llega al cliente al instante (no en background)
+    # Synchronous validation, so the error reaches the client at once rather than in the background.
     ok, reason = auth.check_free_limits(engine, user)
     if not ok:
         raise HTTPException(status_code=429, detail=reason)
     ok, reason = auth.check_unverified_limit(engine, user)
     if not ok:
         raise HTTPException(status_code=429, detail=reason)
-    # Modo SÍNCRONO (comportamiento clásico, espera el resultado): con ?wait=1 explícito
-    # o cuando la peticion viene de TestClient (asi los tests unitarios siguen igual sin tocarlos).
+    # SYNCHRONOUS mode, which waits for the result: with an explicit ?wait=1, or when the
+    # request comes from TestClient, so the unit tests keep working untouched.
     _is_testclient = request.client is None or request.client.host == "testclient"
     if wait or _is_testclient:
         _orch_enter()
@@ -2348,7 +2348,7 @@ def orchestration_status(request: Request, thread_id: str = ""):
 
 
 def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
-    """FASE 29: el bucle completo de orquestación. Corre en un HILO DE FONDO (lo
+    """The full orchestration loop. Runs on a BACKGROUND THREAD
     lanza el handler /orchestrate y responde al instante). Devuelve el resumen o
     lanza; el handler traduce el resultado al estado del debate. `user` ya resuelto."""
     settings = engine.get_all_settings(SETTINGS_DEFAULTS)
@@ -2361,11 +2361,11 @@ def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
     verified_ok, verified_reason = auth.check_unverified_limit(engine, user)
     if not verified_ok:
         raise HTTPException(status_code=429, detail=verified_reason)
-    # FASE 27: la conversacion usa la config del USUARIO (su preferencia), acotada al maximo de su plan.
+    # The conversation uses the USER's settings, capped at their plan's maximum.
     eff = effective_user_config(engine, user, settings)
     _rounds = rounds if rounds is not None else eff["rounds"]
     _rounds = max(0, min(_rounds, int(eff["limits"]["max_rounds"])))
-    # FASE 27 (pieza B): las IAs son las que ELIGIÓ el usuario (de su catálogo, según su plan); si no, el global.
+    # The AIs are the ones the user CHOSE from their catalogue, or the global set if they chose none.
     BOTS_CONFIG = effective_user_bots(engine, user, _global_bots)
     if user.get("plan") == "free":
         # Free JAMAS usa OpenRouter (leccion 25): si el config lo lleva, cae al perfil economico
@@ -2379,15 +2379,15 @@ def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
     llm_temperature = eff["temperature"]   # FASE 27: creatividad elegida por el usuario
     llm_max_tokens = eff["max_tokens"]     # FASE 27: max tokens del usuario (acotado al plan)
     lang = (getattr(req, "lang", "es") or "es").strip().lower()[:2]
-    # Si la UI esta en ingles, usar el system prompt en ingles para que las IAs respondan en ingles
+    # If the UI is in English, use the English system prompt so the AIs answer in English.
     llm_system_prompt = settings["llm_system_prompt_en"] if lang == "en" else settings["llm_system_prompt"]
-    # Opción A (config de usuario): instrucciones EXTRA por usuario -> se SUMAN al prompt base
-    # del sistema (no lo reemplazan, así no se puede romper la orquestación). Vacío = nada.
+    # Per-user EXTRA instructions: they are ADDED to the base system prompt rather than
+    # replacing it, so orchestration cannot be broken from here. Empty means nothing.
     _extra = (eff.get("system_prompt_extra") or "").strip()
     if _extra:
         llm_system_prompt = llm_system_prompt + "\n\n" + _extra
     trace = []
-    # FASE 25: instrumentación de tiempos. _tr() sella cada evento con t_ms (ms desde el inicio).
+    # Timing instrumentation: _tr() stamps every event with t_ms, milliseconds since the start.
     # A=wall total, B=LLM (acumulado), C=espera de lock, D=delays fijos, E=overhead (resta).
     _t_start = _time.time()
     engine.lockwait_reset()
@@ -2398,14 +2398,14 @@ def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
         list.append(trace, ev)
         return ev
     try:
-        # FASE 31: el moderador es POR-USUARIO (su email), no el id global 'miguel'.
+        # The moderator is PER USER (their email), not the global 'miguel' id.
         mod_id = (user.get("email") or "moderador").strip().lower()
         state = engine.read_state()
         participants = state.get("participants", {})
-        # FASE 31: asegurar SIEMPRE que el moderador (el usuario) esté registrado antes de darle el
-        # turno. Antes solo se registraba si NO había NINGÚN participante; teniendo bots pero no el
-        # moderador, acquire_turn(mod_id) violaba la clave foránea turns.current_turn->participants
-        # (SQLite con foreign_keys=ON la caza igual que Postgres).
+        # ALWAYS make sure the moderator (the user) is registered before handing them the
+        # turn. It used to register them only when there was NO participant at all, so with bots
+        # present but no moderator, acquire_turn(mod_id) broke the foreign key
+        # turns.current_turn -> participants. SQLite with foreign_keys=ON catches it like Postgres.
         if mod_id not in participants:
             engine.register_participant(mod_id, "moderador", "human", user.get("email") or mod_id, provider="local")
         if not participants:
@@ -2415,7 +2415,7 @@ def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
         participants = state.get("participants", {})
 
         if user.get("plan") == "free":
-            # Garantizar que los bots economicos existen y restringir la conversacion a ellos
+            # Make sure the economy bots exist, and restrict the conversation to them.
             for bot_id, cfg in BOTS_CONFIG.items():
                 if bot_id not in participants:
                     engine.register_participant(bot_id, cfg["role"], "bot", cfg["email"], provider=cfg["provider"])
@@ -2424,10 +2424,10 @@ def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
             bots = [pid for pid, info in participants.items()
                     if pid in BOTS_CONFIG and info.get("type") == "bot" and info.get("provider") != "openrouter"]
         else:
-            # FASE 26: usar SOLO los bots del bots_config configurado (en su orden), NO todos los
+            # Use ONLY the bots from the configured bots_config, in their order, NOT every registered
             # participantes registrados. Si no, bots "fantasma" de un cambio de perfil anterior
-            # (p. ej. qwen/deepseek del perfil OpenCode que nunca se borraron) contaminan la
-            # conversacion y rompen la cadena de turnos -> caso PROD: minimax ignorado, solo
+            # one. Leftovers from an old profile pollute the conversation and break the turn chain:
+            # it happened in production, where minimax was ignored and only some bots spoke.
             # cyclaban qwen_plus<->deepseek_flash.
             for bot_id, cfg in BOTS_CONFIG.items():
                 if bot_id not in participants:
@@ -2435,8 +2435,8 @@ def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
                 elif participants[bot_id].get("status") == "inactive":
                     engine.set_participant_active(bot_id)  # FASE 27: el usuario las eligio -> manda su seleccion
             participants = engine.read_state().get("participants", {})
-            # BOTS_CONFIG es el set elegido (global o del usuario): se usan TODOS, sin filtrar por
-            # el estado 'inactive' global (que es un vestigio del perfil unico).
+            # BOTS_CONFIG is the chosen set, global or the user's: ALL of them are used, without
+            # filtering by the global 'inactive' flag, a leftover from the single-profile days.
             bots = [pid for pid in BOTS_CONFIG
                     if pid in participants and participants[pid].get("type") == "bot"]
         context_limit = max(context_limit_raw, len(bots) + 1)  # +1 para que los mensajes del moderador sobrevivan una ronda completa
@@ -2445,15 +2445,15 @@ def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
             raise HTTPException(status_code=400, detail="No hay bots registrados")
 
         thread = auth.scope_thread(user, req.thread_id)  # FASE 20.2e: aislamiento por usuario
-        # El moderador se persiste como participante 'miguel', pero los bots deben dirigirse al
+        # The moderator is stored as the participant 'miguel', but the bots must address the
         # usuario por SU nombre real, no "Miguel" (bug reportado 2026-06-21).
-        # FASE 29: leer el nombre FRESCO de la BD (el JWT puede llevar uno viejo si se acaba de cambiar)
+        # Read the name FRESH from the database: the JWT may carry an old one if it just changed.
         _uid = user.get("user_id")
         _fresh = auth.get_user(engine, _uid) if _uid else None
         _name = (_fresh.get("name") if _fresh else None) or user.get("name")
         mod_name = (_name or "").strip() or (user.get("email") or "").split("@")[0] or "Moderador"
 
-        # FASE 24: la limpieza de arranque se acota a ESTE hilo (antes era global y
+        # The start-up cleanup is scoped to THIS thread; it used to be global and
         # saboteaba otras conversaciones en curso). Nunca toca el turno/cola de otros hilos.
         turn_was = engine.get_current_turn(thread)
         queue_was = len(engine.get_queue(thread))
@@ -2467,10 +2467,10 @@ def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
         engine.set_turn_timeout(60, thread)
 
         recipient = req.recipient_id
-        # FASE 26: el destinatario del moderador debe estar entre los bots ACTIVOS de la
+        # The moderator's recipient must be among the ACTIVE bots of this conversation.
         # conversacion, no solo registrado. Si no (p. ej. config OpenRouter -> free cae a
-        # qwen/minimax/deepseek, pero el front manda a qwen_plus que sigue registrado), la bola
-        # va a un bot fuera de la conversacion -> todos hacen skip_empty -> 0 tokens.
+        # Otherwise the ball goes to a bot outside the conversation, everyone skips as empty,
+        # and the whole round produces zero tokens.
         if recipient not in bots:
             recipient = bots[0] if bots else recipient
             _tr({"step": "moderador", "action": "redirect_recipient", "from": req.recipient_id, "to": recipient})
@@ -2484,7 +2484,7 @@ def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
         engine.release_turn(mod_id, thread)
         _tr({"step": "moderador", "action": "release", "ok": True})
 
-        # FASE 40.1: dirección del servidor local configurable (LM Studio / Ollama), la BD manda.
+        # Configurable address of the local model server (LM Studio / Ollama); the database wins.
         _local_url = (engine.get_setting("local_server_url") or _default_local_url()).strip()
         lm_local = LMStudioClient(base_url=_local_url)
         go_cloud = OpenCodeGoClient()
@@ -2547,18 +2547,18 @@ def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
                 bot_max_tokens = BOTS_CONFIG.get(bot_id, {}).get("max_tokens", llm_max_tokens)
 
                 t0 = _time.time()
-                # Leer contexto justo antes del LLM, no al adquirir turno: captura mensajes humanos que llegaron durante el turno del bot anterior
+                # Read the context right before calling the LLM, not when acquiring the turn: that way it picks up human messages that arrived during the previous bot's turn.
                 history = engine.get_thread_context(thread, limit=context_limit)
                 chat_messages = [{"role": "system", "content": bot_system_prompt}]
                 for m in history:
                     label = mod_name if m["sender"] == mod_id else m["sender"]
                     chat_messages.append({"role": "user", "content": f"[{label}]: {m['body']}"})
                 # FASE 26: NO usar 'with ...executor' — su __exit__ ESPERA al hilo aunque
-                # future.result haya saltado por timeout, lo que dejaba un overrun de ~1 llamada
-                # (A=273 con presupuesto 220). Con shutdown(wait=False) el presupuesto es TOPE DURO:
-                # la llamada en vuelo se abandona (su HTTP muere solo por el timeout del cliente).
+                # future.result had already timed out, which left an overrun of roughly one call.
+                # With shutdown(wait=False) the budget becomes a HARD cap: the in-flight call is
+                # abandoned, and its HTTP request dies on its own through the client timeout.
                 _executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-                # FASE: razonamiento bajo/none por bot (solo OpenCode/cloud lo acepta; p. ej. Kimi)
+                # Low or disabled reasoning per bot. Only the cloud provider accepts it.
                 _re = BOTS_CONFIG.get(bot_id, {}).get("reasoning_effort")
                 _kw = {"reasoning_effort": _re} if (_re and provider == "cloud") else {}
                 future = _executor.submit(
@@ -2590,7 +2590,7 @@ def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
                     ok = engine.force_release_turn(bot_id, thread)
                     _tr({"step": "bot", "round": rnd + 1, "i": i, "bot": bot_id,
                                   "action": "release", "ok": ok})
-                    # FASE 40.1 (T4): aviso CLARO si el fallo es que el servidor local está apagado.
+                    # A CLEAR message when the failure is simply that the local model server is off.
                     _es_local_caido = provider == "local" and any(
                         s in str(e) for s in ("CONNECTION_FAILED", "Connection", "refused", "Max retries", "ConnectionError"))
                     if _es_local_caido:
@@ -2650,7 +2650,7 @@ def _orchestrate_impl(req: MessageRequest, user: dict, rounds):
                     _tr({"step": "bot", "round": rnd + 1, "i": i, "bot": bot_id,
                                   "action": "send", "to": next_recipient, "ok": True})
                     if _is_question_to_moderator(response_text, mod_name) and moderator_pause > 0:
-                        # time.sleep() no bloquea /message/send porque FastAPI ejecuta cada request en su propio hilo del thread pool
+                        # time.sleep() does not block /message/send: FastAPI runs each request on its own thread from the pool.
                         _tr({"step": "bot", "round": rnd + 1, "i": i, "bot": bot_id,
                                       "action": "pause", "seconds": moderator_pause})
                         _time.sleep(moderator_pause)
