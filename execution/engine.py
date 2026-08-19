@@ -79,8 +79,8 @@ class ConversationEngine:
         conn.close()
 
     def _migrate_schema(self, conn):
-        """FASE 24: turno/cola/historial pasan de GLOBALES a estar indexados por
-        thread_id. Migración idempotente que preserva la fila única como hilo 'general'."""
+        """Turn, queue and history move from GLOBAL to being indexed by thread_id.
+        An idempotent migration that keeps the single old row as the 'general' thread."""
         tcols = [r[1] for r in conn.execute("PRAGMA table_info(turns)").fetchall()]
         if tcols and "thread_id" not in tcols:
             # Esquema viejo (fila unica CHECK id=1) -> recrear por thread_id
@@ -114,7 +114,7 @@ class ConversationEngine:
 
     @staticmethod
     def _norm_thread(thread_id: str) -> str:
-        """Normaliza el thread_id para clave de turno/cola. Vacío -> 'general'; cap 128."""
+        """Normalises the thread_id used as the turn and queue key. Empty means 'general'; capped at 128."""
         t = (thread_id or "general").strip() or "general"
         return t[:128]
 
@@ -123,12 +123,12 @@ class ConversationEngine:
                      "VALUES (?, 'idle', 300, 0)", (thread_id,))
 
     def _acquire_lock(self, lock_name: str = "turnfile", timeout: float = None) -> str:
-        # FASE 25: bajo concurrencia, varios HILOS competian por el mismo os.mkdir y agotaban
-        # los reintentos -> BlockingIOError -> HTTP 500 (lo destapo la prueba de tiempos con 2
-        # conversaciones). Ahora los hilos del proceso se serializan con un Lock JUSTO (sin
+        # Under concurrency, several THREADS competed for the same os.mkdir and exhausted the
+        # retries, which surfaced as a BlockingIOError and an HTTP 500. Threads inside the process
+        # are now serialised with a FAIR lock, so
         # inanicion) y CON timeout (ante un doble-acquire o un bug falla fuerte, nunca cuelga).
-        # os.mkdir queda solo para exclusion ENTRE PROCESOS (servidor vs recovery_daemon), donde
-        # la contencion es minima y breve.
+        # os.mkdir is left only for exclusion BETWEEN PROCESSES (the server and the recovery
+        # daemon), where contention is minimal and short.
         _t0 = time.time()
         if not self._thread_lock.acquire(timeout=(self.LOCK_TIMEOUT if timeout is None else timeout)):
             raise BlockingIOError(f"No se pudo adquirir lock '{lock_name}' (hilos) a tiempo")
@@ -153,8 +153,8 @@ class ConversationEngine:
         finally:
             self._thread_lock.release()
 
-    # FASE 25: medición de espera del lock (métrica C). Thread-local: cada petición /orchestrate
-    # corre en su propio hilo del threadpool de FastAPI, así no se mezclan conversaciones.
+    # Measures the wait on the lock. Thread-local: each /orchestrate request runs on its own
+    # thread from FastAPI's pool, so conversations do not get mixed up.
     def lockwait_reset(self):
         self._lockwait.ms = 0.0
 
@@ -382,9 +382,9 @@ class ConversationEngine:
         return row["participant_id"] if row else None
 
     def sanitize_participant_id(self, participant_id: str) -> str:
-        # FASE 31: se admiten emails como id (el moderador es por-usuario = su email), por eso
-        # el charset incluye @ . + - además de alfanuméricos y _. Solo va a la BD (por parámetros,
-        # sin riesgo de inyección) y a JSON, nunca a rutas de fichero.
+        # Email addresses are accepted as ids, because the moderator is per user, which is why
+        # the character set allows @ . + - besides alphanumerics and _. It only reaches the database
+        # (as bound parameters, so no injection risk) and JSON, never a file path.
         if not re.match(r'^[a-zA-Z0-9_@.+\-]+$', participant_id):
             raise ValueError(f"Invalid participant_id '{participant_id}': must match ^[a-zA-Z0-9_@.+-]+$")
         if len(participant_id) > 254:
@@ -426,7 +426,7 @@ class ConversationEngine:
 
     def set_participant_active(self, participant_id: str) -> bool:
         """FASE 27: reactivar un bot (p. ej. uno de OpenRouter que un perfil marco inactivo,
-        pero que un usuario premium ha elegido). Su seleccion manda sobre el estado global."""
+        but which a premium user has chosen. Their selection wins over the global state."""
         conn = self._get_conn()
         if not conn.execute("SELECT 1 FROM participants WHERE id=?", (participant_id,)).fetchone():
             conn.close()
@@ -437,8 +437,8 @@ class ConversationEngine:
         return True
 
     def set_participant_inactive(self, participant_id: str) -> bool:
-        """FASE 27: apagar un bot sin borrarlo (reversible). Se usa para los fantasmas
-        de perfiles antiguos (ids fuera del catalogo) que salian 'activos' con 0 turnos."""
+        """Switch a bot off without deleting it, reversibly. Used for the ghosts left by old
+        profiles, ids outside the catalogue that showed as 'active' with zero turns."""
         conn = self._get_conn()
         if not conn.execute("SELECT 1 FROM participants WHERE id=?", (participant_id,)).fetchone():
             conn.close()
@@ -449,9 +449,9 @@ class ConversationEngine:
         return True
 
     def backup_db(self, keep: int = 10):
-        """FASE 28: copia EN CALIENTE de la BD (API .backup de sqlite3, segura con WAL
-        aunque haya tráfico) a memory/backups/. Conserva las últimas `keep`.
-        Devuelve (ruta, tamaño_bytes)."""
+        """HOT copy of the database through sqlite3's .backup API, safe with WAL even under
+        traffic, into memory/backups/. Keeps the latest `keep`.
+        Returns (path, size_in_bytes)."""
         backups_dir = self.memory_dir / "backups"
         backups_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -517,9 +517,9 @@ class ConversationEngine:
                     raise PermissionError("No active turn to send messages")
             ct_row = conn.execute("SELECT current_turn FROM turns WHERE thread_id=?", (thread_id,)).fetchone()
             current_turn = ct_row["current_turn"] if ct_row else None
-            # FASE 31: el MODERADOR está exento de tener el turno (puede intervenir cuando quiera).
-            # Antes se cableaba el id 'miguel'; ahora el moderador es por-usuario (su email), así que
-            # se identifica por ROL/tipo (moderador/human), no por un id fijo.
+            # The MODERATOR is exempt from holding the turn and can step in whenever they want.
+            # The id used to be hardcoded; now the moderator is per user, so they are identified by
+            # ROLE and type (moderator/human) rather than by a fixed id.
             _is_mod = conn.execute("SELECT 1 FROM participants WHERE id=? AND (role='moderador' OR type='human')",
                                    (sender_id,)).fetchone()
             if sender_id != current_turn and not _is_mod:
@@ -617,7 +617,7 @@ class ConversationEngine:
         conn.close()
 
     def hard_reset_all(self):
-        """FASE 24: reinicia el turno y vacia la cola de TODAS las conversaciones (reset de admin)."""
+        """Resets the turn and empties the queue of ALL conversations: an admin reset."""
         conn = self._get_conn()
         conn.execute("UPDATE turns SET state = 'idle', current_turn = NULL, stop_flag = 0")
         conn.execute("DELETE FROM queue")
@@ -631,7 +631,7 @@ class ConversationEngine:
         conn.close()
 
     def read_all_states(self) -> List[Dict[str, Any]]:
-        """FASE 24: estado de turno de todas las conversaciones (dashboard/recovery)."""
+        """Turn state of every conversation, for the dashboard and recovery."""
         conn = self._get_conn()
         rows = conn.execute(
             "SELECT thread_id, current_turn, state, started_at, max_duration, stop_flag FROM turns").fetchall()

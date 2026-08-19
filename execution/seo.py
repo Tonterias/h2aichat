@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """FASE 36 — SEO server-side de las conversaciones publicadas.
 
-Las paginas /conversations/... se sirven desde ficheros exportados con <title> y <h1>
-genericos (marca) y sin <meta description>: invisibles para Google. Aqui reescribimos el
-<head> y el <h1> para que buscadores y tarjetas sociales vean el TEMA real. Fuente de los
-textos: la galeria (i18n.GALLERY_SEO_INDEX) -> un solo sitio, misma promesa que ve el
-visitante. Un unico punto de inyeccion (igual que la barra de navegacion). Idempotente:
-todo deriva del dato crudo de la galeria, asi arreglar una ficha arregla tambien las
-paginas ya publicadas sin recrearlas (leccion 156).
+The /conversations/... pages are served from exported files whose <title> and <h1> are
+generic branding, with no <meta description>: invisible to search engines. Here the
+<head> and the <h1> are rewritten so crawlers and social cards see the real TOPIC. The
+texts come from the gallery (i18n.GALLERY_SEO_INDEX): one place, the same promise the
+visitor sees. A single injection point, like the navigation bar. Idempotent: everything
+derives from the raw gallery data, so fixing one entry also fixes the pages already
+published, without regenerating them.
 
 Tres niveles (decision del PO, Fase 36):
-  - Curada (esta en la galeria) -> SEO completo, indexable  ..... inject_seo()
+  - Curated (it is in the gallery) -> full SEO, indexable  ..... inject_seo()
   - No curada (pruebas/duplicados/debug)                    ..... inject_noindex()
 """
 import html as _html
@@ -19,14 +19,14 @@ import re
 
 BRAND = "H2AI Chat"
 
-# Sufijo del <title> por idioma (patron aprobado por el PO, D3).
+# Per-language <title> suffix.
 _SUFFIX = {
     "es": "Diálogo entre Humanos e IAs · H2AI Chat",
     "en": "Dialogue between humans and AIs · H2AI Chat",
 }
 
-# Fragmento que tolera '>' dentro de valores entrecomillados (los mensajes pueden
-# contener '>' en una og:description del export): o char normal, o cadena "..." completa.
+# A fragment that tolerates '>' inside quoted values: messages can contain '>' in an
+# og:description from the export. Either a normal character, or a whole "..." string.
 _ATTR = r'(?:[^>"]|"[^"]*")*'
 _META_TAG_RE = re.compile(r"<meta" + _ATTR + r">", re.I)
 _LINK_TAG_RE = re.compile(r"<link" + _ATTR + r">", re.I)
@@ -50,8 +50,8 @@ def _iso_date(meta):
 
 
 def _strip_old_social(html):
-    """Quita og:*, twitter:* y description que trajera el export (evita duplicados;
-    hace la inyeccion idempotente si se re-sirve)."""
+    """Strips any og:*, twitter:* and description the export carried, avoiding duplicates and
+    making injection idempotent when the page is served again."""
     html = _META_TAG_RE.sub(lambda m: "" if _SOCIAL_RE.search(m.group(0)) else m.group(0), html)
     html = _LINK_TAG_RE.sub(
         lambda m: "" if 'rel="canonical"' in m.group(0).lower() else m.group(0), html)
@@ -81,7 +81,7 @@ def build_head_tags(*, title, desc, canonical, lang, image_url, jsonld):
 
 
 def inject_seo(html, meta, canonical, image_url, alternates=None):
-    """Reescribe head+H1 de una conversacion CURADA. `meta` = ficha de la galeria
+    """Rewrites the head and H1 of a CURATED conversation. `meta` is its gallery entry
     ({label, desc, lang, section, meta}). `alternates` = [(lang, url), ...] para hreflang."""
     lang = meta.get("lang", "es")
     label = meta.get("label", "")
@@ -108,7 +108,7 @@ def inject_seo(html, meta, canonical, image_url, alternates=None):
 
     tags = build_head_tags(title=title, desc=desc, canonical=canonical, lang=lang,
                            image_url=image_url, jsonld=jsonld)
-    # hreflang ES<->EN (T6): solo si hay par real.
+    # hreflang between Spanish and English: only when there is a real pair.
     if alternates:
         e = lambda s: _html.escape(s or "", quote=True)
         for alt_lang, alt_url in alternates:
@@ -121,9 +121,9 @@ def inject_seo(html, meta, canonical, image_url, alternates=None):
 
 
 def inject_home_seo(html, *, lang, title, desc, canonical, image_url, alternates=None):
-    """FASE 36.3 — SEO de la HOME (landing). Como inject_seo pero para una pagina de sitio, no
-    una conversacion: og:type=website, robots index,follow, JSON-LD WebSite, y NO toca el <h1>
-    del hero. Reescribe el <title> por idioma. Idempotente (quita social previo)."""
+    """SEO for the HOME page. Like inject_seo but for a site page rather than a
+    conversation: og:type=website, robots index,follow, JSON-LD WebSite, and it does NOT touch
+    the hero's <h1>. Rewrites the <title> per language. Idempotent: it strips previous social tags."""
     e = lambda s: _html.escape(s or "", quote=True)
     html = _TITLE_RE.sub("<title>" + _html.escape(title, quote=False) + "</title>", html, count=1)
     html = _strip_old_social(html)
@@ -161,7 +161,7 @@ def inject_home_seo(html, *, lang, title, desc, canonical, image_url, alternates
 
 
 def inject_noindex(html):
-    """Conversaciones NO curadas (Nivel 0): fuera de Google, pero se siguen enlaces."""
+    """NON-curated conversations: kept out of search indexes, but their links are still followed."""
     tag = '<meta name="robots" content="noindex,follow">'
     if tag in html:
         return html

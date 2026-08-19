@@ -311,8 +311,8 @@ TRANSLATIONS = {
     },
 }
 
-# ── FASE 33.1: claves de la LANDING (web.*), separadas del UI de la app ──
-# Se añaden por update() para no mezclarlas con las claves de la app y agruparlas por sección.
+# ── Landing-page keys (web.*), kept apart from the app UI keys ──────────────
+# Added through update() so they stay grouped by section instead of mixed in.
 TRANSLATIONS["es"].update({
     # Fase 34 — pagina de conversacion compartida (/c/<token>)
     "web.share.made_with": "Hecho con H2AIChat.com",
@@ -424,7 +424,7 @@ TRANSLATIONS["es"].update({
     "web.auth.reg_btn": "Crear cuenta",
     "web.auth.have_account": "¿Ya tienes cuenta?",
     "web.auth.login_link": "Inicia sesión",
-    # Legales: Privacidad + Términos (T4d). Aviso: la versión ES es la vinculante.
+    # Legal pages: privacy and terms. Note that the Spanish version is the binding one.
     "web.legal.version": "Versión 2026-06-13 · h2aichat.com",
     "web.legal.notice": "Versión oficial en español. La traducción a otros idiomas es solo de cortesía y no es legalmente vinculante.",
     "web.legal.back": "← Volver",
@@ -460,7 +460,7 @@ TRANSLATIONS["es"].update({
     "web.legal.t_cuenta": "Eres responsable de mantener tu contraseña segura. Puedes eliminar tu cuenta y todos tus datos en cualquier momento desde la propia aplicación.",
     "web.legal.t_cambios_h": "Cambios",
     "web.legal.t_cambios": "Si cambiamos estos términos, te lo notificaremos y registraremos la versión que aceptas. El servicio se ofrece \"tal cual\", sin garantías de disponibilidad ininterrumpida durante la fase actual.",
-    # Capa cliente: nav logueado, página Mi cuenta, contacto, errores (i18n en JS via wt())
+    # Client side: logged-in nav, the account page, contact and errors, translated in JS through wt().
     "web.account.gotochat": "Ir al chat",
     "web.nav.account": "Mi cuenta",
     "web.account.title": "Mi cuenta",
@@ -515,7 +515,7 @@ TRANSLATIONS["es"].update({
     "web.account.deleted": "Cuenta eliminada. Gracias por probar H2AI Chat.",
     "web.account.del_err": "No se pudo eliminar la cuenta",
     "web.common.conn_err": "Error de conexión",
-    # Fuerza de contraseña + errores de login/registro/olvido (barrido final JS)
+    # Password strength, plus login, sign-up and forgotten-password errors.
     "web.pw.s1": "Muy débil",
     "web.pw.s2": "Débil",
     "web.pw.s3": "Aceptable",
@@ -763,9 +763,9 @@ LANGUAGES = [
 
 
 # ── FASE 33.1: motor de render i18n de la landing (server-side) ──
-# La landing lleva tokens {{web.*}}; se sustituyen por el texto del idioma. Clave ausente
-# o vacía -> marcador visible ⟦falta: clave⟧ (criterio 5: que se cace en el UAT, sin
-# fallback silencioso). Solo toca tokens que empiezan por "web." (no rompe plantillas JS).
+# The landing page carries {{web.*}} tokens, replaced by the text for the language. A missing
+# or empty key leaves a VISIBLE marker rather than falling back silently, so it gets caught.
+# Only tokens starting with "web." are touched, so JS templates are left alone.
 _WEB_TOKEN_RE = re.compile(r"\{\{(web\.[a-zA-Z0-9_.]+)\}\}")
 
 
@@ -777,12 +777,12 @@ def _substitute_web(html: str, strings: dict) -> str:
 
 
 def render_web(html: str, lang: str) -> str:
-    """Renderiza la landing en el idioma dado a partir de las claves web.* de TRANSLATIONS."""
+    """Renders the landing page in the given language from the web.* keys in TRANSLATIONS."""
     return _substitute_web(html, TRANSLATIONS.get(lang, TRANSLATIONS["es"]))
 
 
 def _parse_accept_language(header, available):
-    """AC-9: mejor idioma DISPONIBLE segun la cabecera Accept-Language del navegador (respeta q=), o None.
+    """Best AVAILABLE language according to the browser's Accept-Language header (q= is honoured), or None.
     Ej.: 'en-GB,en;q=0.9,es;q=0.8' -> 'en'. 'fr-FR,fr;q=0.9' -> None (no disponible)."""
     if not header:
         return None
@@ -811,7 +811,7 @@ def _parse_accept_language(header, available):
 
 def resolve_web_lang(query_lang, cookie_lang, accept_language=None, available=("es", "en")):
     """Idioma de la landing (T2 + AC-9 deteccion). Prioridad:
-    eleccion explicita (?lang) -> cookie recordada -> idioma del navegador (Accept-Language) -> 'es'."""
+    explicit choice (?lang) -> remembered cookie -> browser language (Accept-Language) -> 'es'."""
     for cand in (query_lang, cookie_lang):
         if cand:
             c = cand.strip().lower()[:2]
@@ -823,10 +823,10 @@ def resolve_web_lang(query_lang, cookie_lang, accept_language=None, available=("
     return "es"
 
 
-# ── FASE 33.1 T5: galería de conversaciones = DATOS POR IDIOMA (no traducción) ──
-# Cada idioma tiene su PROPIA lista (conjuntos distintos). `path` = prefijo de carpeta
-# bajo /conversations/ (T5b: ES->es/, EN->en/). Añadir un idioma = añadir su entrada aquí,
-# sin tocar el HTML (criterio 4). El render es el MISMO para todos (la excepción vive en los datos).
+# ── Conversation gallery: PER-LANGUAGE DATA, not a translation ──────────────
+# Each language has its OWN list, holding different sets. `path` is the folder prefix
+# under /conversations/. Adding a language means adding its entry here, without touching
+# the HTML. Rendering is the SAME for all of them: the exceptions live in the data.
 WEB_GALLERY = {
     "es": {"path": "es/", "sections": [
         {"section": "Negocios", "items": [
@@ -935,7 +935,7 @@ WEB_GALLERY = {
 
 
 def render_gallery(lang):
-    """Construye el HTML de la galería del idioma activo (server-side, mismo código para todos)."""
+    """Builds the gallery HTML for the active language, server-side, with the same code for all."""
     g = WEB_GALLERY.get(lang) or WEB_GALLERY["es"]
     prefix = g.get("path", "")
     out = []
@@ -956,11 +956,11 @@ def render_gallery(lang):
 
 
 # ── FASE 36 (T1) — Indice SEO de las conversaciones publicadas ──
-# Fuente UNICA de los textos SEO: la MISMA galeria que ve el visitante (label + desc por
-# idioma). Asi la promesa de la tarjeta/Google y la de la galeria no divergen, y cada
-# conversacion nueva hereda su SEO con solo anadir su ficha (sin tocar HTML). Clave = ruta
+# SINGLE source for the SEO texts: the SAME gallery the visitor sees, with a label and
+# description per language. That way the promise on the card and in the gallery cannot
+# diverge, and a new conversation inherits its SEO just by adding its entry. The key is the
 # relativa bajo conversations/ (prefijo de idioma incluido: "es/Foo.html", "en/Bar.html"),
-# que es exactamente lo que enlaza render_gallery -> tambien sirve de URL canonica.
+# path, exactly what render_gallery links to, so it doubles as the canonical URL.
 def gallery_seo_index():
     idx = {}
     for lang, g in WEB_GALLERY.items():
@@ -977,12 +977,12 @@ def gallery_seo_index():
     return idx
 
 
-# La galeria es estatica en memoria -> calculamos el indice una sola vez al importar.
+# The gallery is static in memory, so the index is computed once at import time.
 GALLERY_SEO_INDEX = gallery_seo_index()
 
-# Paginas curadas que NO salen en la rejilla de la galeria pero SI queremos indexar (p. ej.
-# el dialogo fundacional, enlazado desde /web#about). Reutilizan el texto que ya existe en
-# las traducciones -> misma promesa, un solo sitio.
+# Curated pages that do NOT appear in the gallery grid but SHOULD be indexed, such as the
+# founding dialogue linked from /web#about. They reuse the text already in the translations,
+# so the promise stays in one place.
 _EXTRA_SEO = {
     "es/Fundacional_ContratoDigital_20260516.html": {
         "label": TRANSLATIONS["es"]["web.about.founding_title"],
@@ -997,8 +997,8 @@ _EXTRA_SEO = {
 }
 GALLERY_SEO_INDEX.update(_EXTRA_SEO)
 
-# Pares de traduccion LITERAL ES<->EN (para hreflang). Solo pares REALES: el resto de la
-# galeria son conversaciones DISTINTAS por idioma (no traducciones) y NO deben enlazarse
+# LITERAL translation pairs, for hreflang. Only REAL pairs: the rest of the gallery holds
+# DIFFERENT conversations per language, not translations, and they must NOT be linked
 # entre si con hreflang (seria incorrecto y confundiria a Google).
 SEO_HREFLANG_PAIRS = {
     "es/Fundacional_ContratoDigital_20260516.html": "en/Fundacional_ContratoDigital_20260516.html",
