@@ -101,7 +101,7 @@ class TestBackendResend(EmailFlowBase):
         mock_resp.raise_for_status.assert_called_once()
 
     def test_registro_no_falla_si_resend_falla(self):
-        """Patron 20.4b: el registro devuelve exito aunque el envio del email reviente."""
+        """Signing up succeeds even when sending the email blows up."""
         from unittest.mock import patch
         os.environ["HUMANIA_EMAIL_BACKEND"] = "resend"
         os.environ["RESEND_API_KEY"] = "re_test_clave_falsa"

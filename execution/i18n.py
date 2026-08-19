@@ -999,7 +999,7 @@ GALLERY_SEO_INDEX.update(_EXTRA_SEO)
 
 # LITERAL translation pairs, for hreflang. Only REAL pairs: the rest of the gallery holds
 # DIFFERENT conversations per language, not translations, and they must NOT be linked
-# entre si con hreflang (seria incorrecto y confundiria a Google).
+# to each other with hreflang: it would be wrong and would confuse search engines.
 SEO_HREFLANG_PAIRS = {
     "es/Fundacional_ContratoDigital_20260516.html": "en/Fundacional_ContratoDigital_20260516.html",
     "en/Fundacional_ContratoDigital_20260516.html": "es/Fundacional_ContratoDigital_20260516.html",
@@ -1008,6 +1008,6 @@ SEO_HREFLANG_PAIRS = {
 }
 
 
-# --- REPO PÚBLICO: galería vacía (un clon genera sus propias conversaciones) ---
+# --- PUBLIC REPO: empty gallery. A clone generates its own conversations. ---
 WEB_GALLERY = {"es": {"path": "es/", "sections": []},
                "en": {"path": "en/", "sections": []}}

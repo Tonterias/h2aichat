@@ -25,7 +25,7 @@ class GitCleaner:
         return result
 
     def get_status(self) -> dict:
-        """Obtiene el estado actual del repositorio."""
+        """Gets the repository's current state."""
         result = self._run_git('status', '--porcelain')
 
         untracked = []
@@ -67,7 +67,7 @@ class GitCleaner:
         }
 
     def clean_pycache(self, force: bool = False) -> list:
-        """Elimina todos los __pycache__ del repositorio."""
+        """Removes every __pycache__ in the repository."""
         deleted = []
         pycache_dirs = list(self.base_path.rglob('__pycache__'))
 

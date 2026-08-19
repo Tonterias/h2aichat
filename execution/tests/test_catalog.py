@@ -1,4 +1,4 @@
-"""FASE 32 — Editor del catálogo de IAs en /admin."""
+"""Editor for the AI catalogue in /admin."""
 import shutil
 import sys
 import tempfile

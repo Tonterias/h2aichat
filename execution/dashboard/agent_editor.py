@@ -145,7 +145,7 @@ class AgentEditor:
         return (len(errors) == 0, errors)
 
     def sanitize_prompt(self, prompt: str) -> str:
-        """Limpia el prompt para evitar injection."""
+        """Sanitises the prompt to avoid injection."""
         prompt = re.sub(r'```[\s\S]*?```', '', prompt)
         prompt = re.sub(r'\n{3,}', '\n\n', prompt)
         prompt = re.sub(r'\t{2,}', '\t', prompt)
@@ -247,7 +247,7 @@ class AgentEditor:
         return yaml.dump(config, default_flow_style=False, sort_keys=False)
 
     def save_current_config(self, agent_id: str) -> Tuple[bool, str]:
-        """Guarda la config del buffer."""
+        """Saves the buffer's configuration."""
         if agent_id not in self._edit_buffer:
             return False, "No hay cambios pendientes para guardar"
 

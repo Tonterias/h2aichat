@@ -4,7 +4,7 @@ from typing import Optional, List, Dict
 
 
 class MessageCounter:
-    """Cuenta mensajes en la conversacion para detectar finalizacion."""
+    """Counts messages in the conversation to detect when it is finished."""
 
     FINAL_MESSAGE_THRESHOLD = 5
     FINISH_KEYWORD = "FIN"
@@ -36,7 +36,7 @@ class MessageCounter:
 class DialogOrchestrator:
     """
     Orquestador de conversacion con finalizacion automatica.
-    Entrega el relato final en RELATO_FINAL.md dentro del buzon de miguel.
+    Delivers the final piece as RELATO_FINAL.md in the moderator's inbox.
     """
 
     def __init__(self, base_path: Path = None):
@@ -47,8 +47,8 @@ class DialogOrchestrator:
 
     def on_message_sent(self, sender_id: str, body: str, recipient_id: str) -> Dict:
         """
-        Llamado despues de cada send_message().
-        Retorna dict con info sobre si se disparo finalizacion.
+        Called after each send_message().
+        Returns a dict saying whether finishing was triggered.
         """
         count = self.counter.increment(sender_id, body)
         self.conversation_log.append({
@@ -132,7 +132,7 @@ class DialogOrchestrator:
         return self.base_path / 'mailboxes' / 'miguel' / 'RELATO_FINAL.md'
 
     def reset(self):
-        """Reinicia el orquestador para una nueva conversacion."""
+        """Resets the orchestrator for a new conversation."""
         self.counter = MessageCounter()
         self.final_result = None
         self.conversation_log = []

@@ -31,7 +31,7 @@ class AutoJanitor:
         self.clean_count = 0
 
     def scan(self) -> Dict[str, List[Path]]:
-        """Escanea y retorna archivos que pueden ser limpiados."""
+        """Scans and returns files that can be cleaned up."""
         results = {
             'pycache': [],
             'temp': [],
@@ -61,7 +61,7 @@ class AutoJanitor:
         Limpia archivos.
 
         Args:
-            dry_run: Si True, solo muestra lo que se limpiaria
+            dry_run: when True, only shows what would be cleaned
 
         Returns:
             Dict con summary de limpieza
@@ -199,7 +199,7 @@ class AutoJanitor:
         return "\n".join(lines)
 
     def render_status(self) -> str:
-        """Renderiza el estado del conserje."""
+        """Renders the janitor's state."""
         scan_results = self.scan()
 
         total_cleanable = (

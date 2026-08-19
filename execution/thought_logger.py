@@ -66,7 +66,7 @@ class ThoughtLogger:
         return thoughts[:limit]
 
     def search_thoughts(self, pattern: str) -> List[Path]:
-        """Busca pensamientos que contengan el patron."""
+        """Finds thoughts matching the pattern."""
         results = []
         for thought_file in self.thoughts_dir.glob('*.txt'):
             try:
@@ -82,7 +82,7 @@ class ThoughtLogger:
         return list(self.thoughts_dir.glob(f'*_{mode}_*.txt'))
 
     def clear_thoughts(self) -> int:
-        """Elimina todos los pensamientos (para testing). Retorna count de archivos borrados."""
+        """Deletes every thought, for testing. Returns how many files were removed."""
         count = 0
         for thought_file in self.thoughts_dir.glob('*.txt'):
             try:

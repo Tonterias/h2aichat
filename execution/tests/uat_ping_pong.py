@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 HumanIA - UAT: Prueba de Aceptacion Integral
-Ping-Pong secuencial con LM Studio + validacion completa del sistema.
+Sequential ping-pong against LM Studio, plus a full system check.
 """
 import sys
 import json

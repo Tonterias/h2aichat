@@ -48,7 +48,7 @@ def api_get_raw(path, extra_headers=None):
 
 
 class TestSecurityHeaders:
-    """18.2: Verificar security headers en todas las respuestas."""
+    """Check the security headers on every response."""
 
     def test_nosniff_header(self, client):
         r = client.get("/")

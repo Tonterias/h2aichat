@@ -17,7 +17,7 @@ class ContractViewer:
     def list_contracts(self, agent_id: str = None,
                       limit: int = 10) -> List[Dict]:
         """
-        Lista contratos del mas reciente al mas antiguo.
+        Lists contracts from newest to oldest.
         Opcionalmente filtra por agente.
         """
         if not self.contracts_dir.exists():

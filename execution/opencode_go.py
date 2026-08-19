@@ -42,7 +42,7 @@ class OpenCodeGoClient:
             "max_tokens": max_tokens
         }
         # FASE: bajar/quitar el razonamiento (p. ej. Kimi gastaba sus tokens razonando
-        # y devolvia vacio). 'none' -> responde directo, mas rapido y sin vaciarse.
+        # and came back empty. 'none' answers directly: faster, and it does not run dry.
         if reasoning_effort:
             payload["reasoning"] = {"effort": reasoning_effort}
         last_error = None
@@ -57,10 +57,10 @@ class OpenCodeGoClient:
                 time.sleep(wait)
                 last_error = f"429 retry {attempt + 1}/3 after {wait}s"
                 continue
-            # EL PROVEEDOR RETIRA UN PARAMETRO SIN AVISAR. Algunos modelos dejan de aceptar el
+            # THE PROVIDER WITHDRAWS A PARAMETER WITHOUT WARNING. Some models stop accepting the
             # campo `reasoning` y devuelven 400 «Extra inputs are not permitted, field:
-            # 'reasoning'» — y con el, ese bot se queda MUDO en la mesa. En vez de que un cambio
-            # del proveedor calle un asiento, si el 400 es por ese campo se reintenta SIN el.
+            # 'reasoning' field, and that bot goes SILENT at the table. Rather than let a provider
+            # change mute a seat, when the 400 is about that field the call is retried WITHOUT it.
             if (resp.status_code == 400 and "reasoning" in payload
                     and "reasoning" in (resp.text or "").lower() and attempt < 3):
                 payload.pop("reasoning", None)

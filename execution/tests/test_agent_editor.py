@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Test suite para AgentEditor.
-10 tests unitarios para validar la logica del editor de agentes.
+Ten unit tests covering the agent editor's logic.
 """
 
 import unittest
@@ -27,7 +27,7 @@ class TestAgentEditorCore(unittest.TestCase):
         shutil.rmtree(self.test_dir)
 
     def test_list_agents_empty(self):
-        """Lista agentes vacia cuando no hay configs."""
+        """The agent list is empty when there are no configs."""
         agents = self.editor.list_agents()
         self.assertEqual(len(agents), 0)
 

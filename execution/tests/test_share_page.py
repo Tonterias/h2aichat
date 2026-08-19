@@ -1,4 +1,4 @@
-"""FASE 34 (T2) — Tests del render SERVER-SIDE de la conversacion compartida."""
+"""Tests for the SERVER-SIDE rendering of a shared conversation."""
 import sys
 import unittest
 from pathlib import Path
@@ -51,7 +51,7 @@ class RenderTest(unittest.TestCase):
         self.assertIn("<li>Sinergias reales</li>", h)       # lista
 
     def test_markdown_tablas_y_hr(self):
-        # La tabla va en una respuesta de bot (no en el 1er mensaje, que es la pregunta-titulo)
+        # The table goes in a bot's reply, not the first message, which is the title question
         body = "| Punto | Conclusion |\n|---|---|\n| ¿Funcionan? | Si, **justificado**. |\n\n---"
         snap = dict(SNAP, messages=[
             {"sender": "miguel", "recipient": "q", "body": "¿Funcionan los prompts?", "timestamp": "2026-06-28T08:00:00"},
@@ -96,7 +96,7 @@ class RenderTest(unittest.TestCase):
         self.assertNotIn("<details", h)
 
     def test_titulo_largo_con_desplegable(self):
-        # El titulo se deriva del PRIMER mensaje; una pregunta larga -> resumen cortado + desplegable completo
+        # The title comes from the FIRST message; a long question gives a trimmed summary plus a full disclosure
         longq = ("La IA no va a reemplazar a los equipos de datos, y quien diga lo contrario no "
                  "entiende de negocio. (Debate) que opinas tu sobre esto, con mas texto para superar los 90 chars")
         snap = dict(SNAP, messages=[{"sender": "miguel", "recipient": "qwen_plus",

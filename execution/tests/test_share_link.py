@@ -1,8 +1,8 @@
-"""FASE 34 (T1) — Tests de la capa de datos del enlace publico por conversacion.
+"""Tests for the data layer behind the public link of a conversation.
 
-Cubre los criterios de la capa de datos: crear/leer por token, 'Actualizar enlace'
-(re-congela sobre el MISMO token), revocar (apaga), re-compartir tras revocar (token
-NUEVO), estado para la UI, token invalido y borrados en cascada (conversacion / RGPD).
+Covers creating and reading by token, refreshing the link
+(re-freezing behind the SAME token), revoking, sharing again after revoking (which
+gives a NEW token), the state for the UI, an invalid token, and cascading deletes.
 """
 import sys
 import shutil
@@ -63,7 +63,7 @@ class ShareLinkTest(unittest.TestCase):
         self.assertIsNone(auth.get_share_link(self.engine, "noexiste"))
 
     def test_token_inadivinable(self):
-        # urlsafe, sin separadores problematicos para URL, longitud razonable
+        # url-safe, with no separators that would break a URL, and a reasonable length
         t = auth.create_or_update_share_link(self.engine, 1, "user_1_X", "{}")
         self.assertGreaterEqual(len(t), 10)
         self.assertNotIn("/", t)

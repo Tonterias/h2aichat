@@ -4,7 +4,7 @@ sys.path.insert(0, str(Path("execution").resolve()))
 import auth
 from engine import ConversationEngine
 PORT="8817"; BASE=f"http://127.0.0.1:{PORT}"
-# crear un usuario de prueba para ver la fila
+# create a test user so there is a row to look at
 e=ConversationEngine()
 proc=subprocess.Popen([sys.executable,"-m","uvicorn","execution.api_server:app","--port",PORT],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 try:
@@ -24,7 +24,7 @@ try:
         sels=len(pg.query_selector_all("#usersTable .plansel"))
         packs=len(pg.query_selector_all("#usersTable .pack"))
         opts=pg.eval_on_selector("#usersTable .plansel","s=>Array.from(s.options).map(o=>o.value)")
-        # hover para ver una leyenda
+        # hover to reveal a tooltip
         pg.hover("#usersTable .pack.danger-pack .danger"); time.sleep(0.5)
         pg.eval_on_selector("#usersTable","e=>e.scrollIntoView()"); time.sleep(0.3)
         pg.screenshot(path=str(Path(__file__).resolve().parent/"smoke_admin_users.png"))

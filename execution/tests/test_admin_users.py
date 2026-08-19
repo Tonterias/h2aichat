@@ -1,6 +1,6 @@
-"""FASE 23 — Tests de gestion de usuarios desde el panel admin.
+"""Tests for user management from the admin panel.
 
-Cubre las funciones de auth.py (23.1a) y los endpoints /api/admin/users (23.1b),
+Covers the auth.py functions and the /api/admin/users endpoints,
 incluyendo el corte de sesiones vivas al banear (sessions_invalid_before)."""
 import os
 import shutil
@@ -77,7 +77,7 @@ class TestBackendUsers(AdminBase):
         self.assertEqual(auth.get_user(self.engine, uid)["status"], "active")
 
     def test_banear_invalida_sesiones_vivas(self):
-        """El gotcha del plan: el JWT ya emitido deja de valer al suspender."""
+        """The catch: a JWT already issued stops being valid on suspension."""
         token, uid = self.mkuser()
         self.assertIsNotNone(auth.decode_token(self.engine, token))  # valido antes
         auth.set_status(self.engine, uid, "suspended")
@@ -255,7 +255,7 @@ class TestUserPrefs(AdminBase):
                              headers={"Authorization": f"Bearer {token}"})
         self.assertEqual(r.status_code, 200)
         self.assertLessEqual(len(r.json()["prefs"]["system_prompt_extra"]), 2000)
-        # GET lo devuelve y effective_user_config lo expone para la orquestación
+        # GET returns it, and effective_user_config exposes it to the orchestration
         d = self.client.get("/api/me/prefs", headers={"Authorization": f"Bearer {token}"}).json()
         self.assertIn("Responde breve.", d["prefs"]["system_prompt_extra"])
         settings = self.engine.get_all_settings(api_server.SETTINGS_DEFAULTS)

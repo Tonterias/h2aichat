@@ -124,7 +124,7 @@ class MultiLMStudioClient:
         return self.clients[agent_id]
 
     def get_model_config(self, agent_id: str) -> Dict:
-        """Retorna configuracion del modelo para un agente."""
+        """Returns the model configuration for an agent."""
         return self.MODEL_CONFIG.get(agent_id, {
             'name': 'local-model',
             'port': 1234,
@@ -154,7 +154,7 @@ class MultiLMStudioClient:
         return client.chat_completion(messages, model=model, temperature=temperature, max_tokens=max_tokens)
 
     def load_model(self, agent_id: str, model_name: str = None) -> bool:
-        """Verifica si el modelo esta disponible."""
+        """Checks whether the model is available."""
         client = self.get_client(agent_id)
         available = client.list_models()
 
@@ -165,14 +165,14 @@ class MultiLMStudioClient:
         return model_name in available
 
     def health_check_all(self) -> Dict[str, bool]:
-        """Verifica salud de todas las instancias."""
+        """Checks the health of every instance."""
         health = {}
         for agent_id in self.clients:
             health[agent_id] = self.clients[agent_id].health_check()
         return health
 
     def get_active_model(self, agent_id: str) -> Optional[str]:
-        """Retorna el modelo activo en la instancia del agente."""
+        """Returns the model active on the agent's instance."""
         if agent_id in self.clients:
             return self.clients[agent_id].model_name
         return None

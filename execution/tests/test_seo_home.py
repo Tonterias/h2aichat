@@ -1,9 +1,9 @@
 """FASE 36.3 — SEO de la home + desduplicado de URLs.
 
 Verifica que:
-- la home /web (ES y EN) sirve description, canonical, Open Graph, robots index, hreflang y JSON-LD WebSite,
+- the /web home page, in both languages, serves description, canonical, Open Graph, robots index, hreflang and JSON-LD WebSite,
 - la app de chat / lleva robots noindex,
-- el sitemap ya NO incluye la raiz "/" (solo /web, /web?lang=en, /preguntas y conversaciones).
+- the sitemap no longer includes the root "/" (only /web, /web?lang=en, /preguntas and the conversations).
 """
 import sys
 import unittest

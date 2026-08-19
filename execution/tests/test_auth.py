@@ -240,8 +240,8 @@ class TestLimites(AuthTestBase):
 
 class TestAccesoProduccion(AuthTestBase):
     """FASE 20.1 (hallazgo UAT PO 2026-06-12): flujo de acceso con auth forzada.
-    El JWT del usuario va antes que el token maestro; /chat sirve la SPA sin sesion
-    en el header (la SPA se autoprotege via /auth/me)."""
+    The user's JWT comes before the master token, and /chat serves the SPA without a session
+    in the header, because the SPA protects itself through /auth/me."""
 
     def test_chat_sirve_spa_sin_sesion_con_auth_forzada(self):
         os.environ["HUMANIA_AUTH"] = "on"
@@ -272,8 +272,8 @@ class TestAccesoProduccion(AuthTestBase):
         self.assertEqual(resp.status_code, 401)
 
     def test_lectura_de_hilos_traducida_al_usuario(self):
-        """Hallazgo UAT PO 2026-06-12: pedir ?thread_id=general debe devolver los
-        mensajes del hilo del usuario (user_N_general) y el nombre canonico."""
+        """Asking for ?thread_id=general must return the messages of the user's own thread
+        (user_N_general), along with the canonical name."""
         self.engine.register_participant("miguel", "t1", "human", "m@t")
         self.engine.register_participant("qwen_plus", "t2", "bot", "q@t")
         token = self.register().json()["token"]

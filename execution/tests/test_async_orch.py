@@ -1,4 +1,4 @@
-"""FASE 29 — Orquestación asíncrona: registro de tareas + endpoint de estado."""
+"""Asynchronous orchestration: the task registry and the status endpoint."""
 import shutil
 import sys
 import tempfile
@@ -82,7 +82,7 @@ class TestOrchStatusEndpoint(unittest.TestCase):
         self.assertTrue(r2["budget_reached"])
 
     def test_orchestrate_sync_via_testclient(self):
-        # Desde TestClient el handler corre SINCRONO -> devuelve el resultado, no {started}
+        # From TestClient the handler runs SYNCHRONOUSLY, so it returns the result rather than {started}
         r = self.client.post("/orchestrate?rounds=0", json={
             "recipient_id": "qwen_plus", "body": "hola", "sender_id": "miguel", "thread_id": "s1"})
         self.assertEqual(r.status_code, 200)

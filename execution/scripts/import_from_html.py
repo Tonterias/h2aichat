@@ -1,4 +1,4 @@
-"""Importa mensajes desde un HTML exportado de HumanIA a la base de datos SQLite.
+"""Imports messages from an exported HTML file into the SQLite database.
 
 Uso:
     python execution/scripts/import_from_html.py <archivo.html>

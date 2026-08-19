@@ -30,8 +30,8 @@ class TestEngineLocks(unittest.TestCase):
 
     def test_double_lock_blocked(self):
         self.engine._acquire_lock("test")
-        # FASE 25: el 2º acquire (mismo hilo) ya no entra; con timeout corto falla rapido
-        # en vez de colgarse para siempre. Verifica la exclusion mutua.
+        # The second acquire on the same thread no longer gets in; with a short timeout it fails
+        # fast instead of hanging forever. This checks the mutual exclusion.
         with self.assertRaises(BlockingIOError):
             self.engine._acquire_lock("test", timeout=0.3)
 

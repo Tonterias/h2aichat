@@ -1,4 +1,4 @@
-"""FASE 30 — Test del sembrado de la BD de staging (copia consistente de PROD)."""
+"""Tests for seeding the staging database: a consistent copy of production."""
 import shutil
 import sqlite3
 import sys

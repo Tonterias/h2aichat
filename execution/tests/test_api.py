@@ -80,7 +80,7 @@ class TestAPI(unittest.TestCase):
 
 
 class TestWebLegal(unittest.TestCase):
-    """FASE 20.1 (mejora PO 2026-06-12): enlaces legales en todas las paginas de /web."""
+    """Legal links on every /web page."""
 
     def setUp(self):
         self.client = TestClient(app)
@@ -89,7 +89,7 @@ class TestWebLegal(unittest.TestCase):
         resp = self.client.get("/web")
         self.assertEqual(resp.status_code, 200)
         # footer legal en home, about, login, forgot, register + cruces en privacidad/terminos.
-        # Los enlaces existen en dos formatos: navTo('...') (misma pestaña) y /web#... (pestaña nueva, en los footers de auth).
+        # The links come in two shapes: navTo('...') for the same tab, and /web#... for a new one, used in the auth footers.
         priv = resp.text.count("navTo('privacidad')") + resp.text.count("/web#privacidad")
         term = resp.text.count("navTo('terminos')") + resp.text.count("/web#terminos")
         self.assertGreaterEqual(priv, 7)
@@ -216,7 +216,7 @@ class TestFeedback(unittest.TestCase):
 
 
 class TestAdminStats(unittest.TestCase):
-    """Panel /admin: solo el email administrador (contact@h2aichat.com) ve las stats."""
+    """The /admin panel: only the administrator address sees the stats."""
 
     def setUp(self):
         self.test_dir = Path(tempfile.mkdtemp())
@@ -259,7 +259,7 @@ class TestAdminStats(unittest.TestCase):
 
 
 class TestTrialAbuse(unittest.TestCase):
-    """Borrarse y re-registrarse con el mismo email NO debe reiniciar los creditos free."""
+    """Deleting an account and signing up again with the same address must NOT reset the free credits."""
 
     def setUp(self):
         self.test_dir = Path(tempfile.mkdtemp())
@@ -286,7 +286,7 @@ class TestTrialAbuse(unittest.TestCase):
 
 
 class TestShareConsent(unittest.TestCase):
-    """Opt-in granular de publicación: default privado, consentimiento explícito y revocable."""
+    """Granular publishing opt-in: private by default, with explicit and revocable consent."""
 
     def setUp(self):
         self.test_dir = Path(tempfile.mkdtemp())
@@ -367,7 +367,7 @@ class TestSettingsSecurity(unittest.TestCase):
         self.assertEqual(self.client.post("/api/settings", json={"orchestrate_rounds": "5"}, headers=h).status_code, 200)
 
     def test_topes_rechazan_valores_absurdos(self):
-        # sin cabecera -> testclient local = admin/dev; valida los topes
+        # with no header the local testclient counts as admin/dev; this checks the caps
         self.assertEqual(self.client.post("/api/settings", json={"orchestrate_rounds": "99"}).status_code, 400)
         self.assertEqual(self.client.post("/api/settings", json={"llm_max_tokens": "4000"}).status_code, 400)
         self.assertEqual(self.client.post("/api/settings", json={"llm_temperature": "2"}).status_code, 400)

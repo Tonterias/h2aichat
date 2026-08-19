@@ -3,8 +3,8 @@
 HumanIA - Envio de email (FASES 20.3/20.4)
 
 Backend intercambiable via HUMANIA_EMAIL_BACKEND (decision PO 2026-06-11):
-  - "console" (default en dev): imprime el email en la consola del servidor.
-    Sin servicios externos. Los tests capturan los envios en SENT_EMAILS.
+  - "console" (the default in dev): prints the email to the server console.
+    No external services. Tests capture what is sent in SENT_EMAILS.
   - "resend" (produccion, decision final PO 2026-06-11, FASE 20.1): API HTTP de
     Resend con dominio verificado noreplay.h2aichat.com.
   - "smtp": SMTP estandar con STARTTLS. Alternativa conservada (leccion 99).
@@ -30,7 +30,7 @@ import httpx
 RESEND_API_URL = "https://api.resend.com/emails"
 DEFAULT_FROM = "hola@noreplay.h2aichat.com"
 
-# Registro en memoria de los envios del backend console (lo usan los tests y el UAT)
+# In-memory record of what the console backend sends, used by tests and manual checks.
 SENT_EMAILS = []
 MAX_SENT_LOG = 50
 
@@ -46,7 +46,7 @@ def get_backend() -> str:
 
 def validate_production_config():
     """Fallo en arranque (FASE 20.1-A3), mismo patron que HUMANIA_TOKEN/JWT_SECRET:
-    en produccion el backend debe ser valido y tener sus credenciales configuradas."""
+    in production the backend must be valid and have its credentials configured."""
     if os.environ.get("HUMANIA_ENV", "dev") != "production":
         return
     backend = get_backend()  # rechaza console y valores desconocidos
@@ -115,7 +115,7 @@ def base_url() -> str:
 
 
 def _privacy_footer() -> str:
-    """GDPR 20.8f: por que recibes este email + enlace a la politica de privacidad."""
+    """GDPR: why you are receiving this email, plus a link to the privacy policy."""
     return (f"\n\n—\nRecibes este email porque se solicito una accion con tu direccion en h2aichat.com. "
             f"Politica de privacidad: {base_url()}/web#privacidad")
 

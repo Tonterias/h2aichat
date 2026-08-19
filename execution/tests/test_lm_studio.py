@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tests para LMStudioClient con mock de requests.
+Tests for LMStudioClient with mocked requests.
 """
 import unittest
 from unittest.mock import patch, MagicMock

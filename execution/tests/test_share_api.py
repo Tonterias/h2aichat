@@ -1,4 +1,4 @@
-"""FASE 34 (T3) — Tests de los endpoints del enlace publico + la ruta /c/<token>."""
+"""Tests for the public-link endpoints and the /c/<token> route."""
 import os
 import sys
 import shutil

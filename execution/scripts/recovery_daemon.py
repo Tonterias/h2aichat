@@ -37,7 +37,7 @@ class RecoveryDaemon:
     def run_once(self) -> dict:
         result = {"released": [], "errors": []}
         try:
-            # FASE 24: el turno es por conversacion -> revisar TODAS las conversaciones activas
+            # The turn is per conversation, so every active conversation has to be checked.
             for st in self.engine.read_all_states():
                 thread = st.get("thread_id", "general")
                 current = st.get("current_turn")

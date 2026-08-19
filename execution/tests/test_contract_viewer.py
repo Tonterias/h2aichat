@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Test suite para ContractViewer.
-10 tests unitarios para validar la logica del visualizador de contratos.
+Ten unit tests covering the contract viewer's logic.
 """
 
 import unittest
@@ -29,7 +29,7 @@ class TestContractViewerCore(unittest.TestCase):
         shutil.rmtree(self.test_dir)
 
     def test_list_contracts_empty(self):
-        """Lista vacia cuando no hay contratos."""
+        """The list is empty when there are no contracts."""
         contracts = self.viewer.list_contracts()
         self.assertEqual(len(contracts), 0)
 

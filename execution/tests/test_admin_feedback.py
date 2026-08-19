@@ -1,10 +1,10 @@
 """FASE 20.7.1 — Lector de comentarios en conversaciones (panel /admin).
 
-Cubre la funcion auth.list_conversation_comments (T1) y el endpoint
-GET /api/admin/feedback/comments (solo admin). Verifica que:
-- solo entran los comentarios de TEXTO de conversaciones (no los pulgares sueltos ni el contacto),
-- orden mas reciente primero, usuario/anonimo, pulgar, y el enlace publico si la conversacion esta publicada,
-- el endpoint es solo-admin.
+Covers auth.list_conversation_comments and the endpoint
+GET /api/admin/feedback/comments (admin only). It checks that:
+- only WRITTEN conversation comments are included, not bare thumbs or contact messages,
+- they come newest first, with user or anonymous, the thumb, and the public link when published,
+- and the endpoint is admin-only.
 """
 import os
 import shutil

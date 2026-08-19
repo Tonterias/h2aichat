@@ -7,7 +7,7 @@ from engine import ConversationEngine
 
 
 class StatusPanel:
-    """Muestra el estado actual de todos los agentes."""
+    """Shows the current state of every agent."""
 
     def __init__(self, base_path: Path = None):
         self.base_path = base_path or Path(__file__).parent.parent
