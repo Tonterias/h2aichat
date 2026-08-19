@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""FASE 28 — Lectura de métricas del sistema (RAM/CPU/swap/disco/carga).
+"""Reads system metrics: RAM, CPU, swap, disk and load.
 
-Usa `psutil` si está disponible; si no, degrada con la stdlib (el disco SIEMPRE
-se puede leer con shutil; la RAM en Linux via /proc/meminfo). El import de psutil
-es tolerante a fallos: aunque no esté instalado, el módulo NO rompe el arranque
-del servidor — simplemente devuelve None en lo que no pueda medir.
+Uses `psutil` when available and degrades to the standard library otherwise: disk can
+ALWAYS be read with shutil, and RAM on Linux through /proc/meminfo. Importing psutil
+is fault-tolerant: even when it is missing, this module does NOT break the server's
+start-up; it simply returns None for whatever it cannot measure.
 
-Funciones puras y sin estado de aplicación: la lógica de "capacidad" recibe los
-valores ya leídos, lo que permite inyectar datos en los tests sin psutil real.
+Pure functions with no application state: the "capacity" logic takes values that have
+already been read, which lets tests inject data without a real psutil.
 """
 import os
 import shutil
@@ -54,11 +54,11 @@ def swap_pct():
 
 
 def cpu_pct():
-    """% de CPU instantáneo (no bloqueante)."""
+    """Instantaneous CPU percentage, non-blocking."""
     if psutil:
         try:
-            # interval=0.1: mide durante 100ms y da un valor REAL. Con interval=None la
-            # PRIMERA llamada (o tras una pausa) devuelve 0.0 (no hay linea base) -> CPU=0%.
+            # interval=0.1 measures for 100 ms and gives a REAL value. With interval=None the
+            # FIRST call (or one after a pause) returns 0.0, because there is no baseline yet.
             return round(psutil.cpu_percent(interval=0.1), 1)
         except Exception:
             return None
@@ -81,7 +81,7 @@ def cpu_count():
 
 
 def _meminfo_pct():
-    """Fallback Linux sin psutil: % RAM usada desde /proc/meminfo."""
+    """Linux fallback without psutil: percentage of RAM used, from /proc/meminfo."""
     try:
         info = {}
         with open("/proc/meminfo") as f:
@@ -98,7 +98,7 @@ def _meminfo_pct():
 
 
 def read_system_metrics(disk_path: str = "/"):
-    """Snapshot crudo del sistema (sin lógica de capacidad)."""
+    """Raw system snapshot, with no capacity logic applied."""
     return {
         "ram_pct": ram_pct(),
         "swap_pct": swap_pct(),
@@ -112,10 +112,10 @@ def read_system_metrics(disk_path: str = "/"):
 
 
 def compute_capacity(metrics: dict, inflight_orch: int = 0, orch_cap: int = 8):
-    """Capacidad 0-100 = el PEOR de los sub-medidores disponibles.
+    """Capacity from 0 to 100: the WORST of the available sub-gauges.
 
-    Si cualquier recurso está al 99%, el sistema está al borde. Solo cuenta lo
-    que se pudo medir (None se ignora). 'load' se normaliza a % sobre núcleos.
+    If any resource sits at 99%, the system is on the edge. Only what could be measured
+    counts (None is ignored). 'load' is normalised to a percentage over the core count.
     """
     sub = {}
     if metrics.get("ram_pct") is not None:

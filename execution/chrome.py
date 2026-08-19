@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """FASE 36.2 (refactor) — CHROME compartido: header (nav) y footer en UN solo sitio.
 
-Antes el header/footer vivian DUPLICADOS: escritos a mano dentro de la landing
-(`indexweb.html`) y COPIADOS en el banco (`public_index.py`) -> se desincronizaban (el PO
-lo detecto: el banco no tenia About ni el tema PRE-PROD). Ahora ambos montan estos
-componentes desde aqui. Dos modos:
-  - "spa"    -> la landing (usa navTo() y los divs de estado de login; se inyecta en
+The header and footer used to be DUPLICATED: hand-written inside the landing page
+(`indexweb.html`) and COPIED into the question bank (`public_index.py`), so they drifted
+apart: the bank had no About link and no staging theme. Now both build these
+components from here. Two modes:
+  - "spa"    -> the landing page (uses navTo() and the login-state divs; injected into
                indexweb.html sustituyendo los marcadores <!--CHROME_NAV/FOOTER-->).
   - "static" -> paginas server-side sueltas (el banco /preguntas): enlaces reales.
-La marca de PRE-PROD (tema azul + insignia) se enciende por hostname (`staging.*`) con el
-MISMO snippet en todas las paginas -> el banco la hereda sin tocar nada.
+The staging marker (blue theme plus badge) is switched on by hostname (`staging.*`) with
+the SAME snippet on every page, so the bank inherits it with no extra work.
 """
 import html as _html
 
@@ -59,7 +59,7 @@ def render_nav(lang, active="", mode="static"):
                  f'<a class="{cls("home")}" href="/web">{_e(home)}</a>'
                  f'<a class="{cls("about")}" href="/web#about">{_e(about)}</a>'
                  f'<a class="{cls("conversations")}" href="/preguntas">{_e(convs)}</a></div>')
-        # id="navPublicActions" -> auth_js() lo intercambia por "Mi cuenta"/"Ir al chat" si hay sesion.
+        # id="navPublicActions": auth_js() swaps it for the account and chat links when there is a session.
         actions = ('<div class="nav-actions" id="navPublicActions">'
                    f'<a class="btn-ghost" href="/web">{_e(login)}</a>'
                    f'<a class="btn-primary" href="/web">{_e(register)}</a></div>')
@@ -71,9 +71,9 @@ def _js_str(s):
 
 
 def auth_js(lang):
-    """FASE 36.2 — en paginas SUELTAS (banco), refleja la sesion en el nav igual que la home:
-    si hay token en localStorage, cambia Entrar/Probar gratis por Mi cuenta/Ir al chat.
-    Mismo origen y misma clave 'h2ai_token' -> coherente con la landing (sin parecer deslogueo)."""
+    """On STANDALONE pages (the bank), reflect the session in the nav just like the home page:
+    if there is a token in localStorage, swap sign-in for the account and chat links.
+    Same origin and the same 'h2ai_token' key, so it matches the landing page and never looks like a logout."""
     account = _js_str(_t(lang, "web.nav.account"))
     gotochat = _js_str(_t(lang, "web.account.gotochat"))
     return ("<script>(function(){var a=document.getElementById('navPublicActions');"
@@ -109,8 +109,8 @@ def render_footer(lang, mode="static"):
     )
 
 
-# CSS del chrome (nav + footer + variables) para PAGINAS SUELTAS (el banco). La landing ya
-# lleva su copia inline; aqui vive la version para lo demas. Incluye el tema PRE-PROD.
+# Chrome CSS (nav, footer and variables) for STANDALONE pages. The landing page already
+# carries its own inline copy; this is the version for everything else, staging theme included.
 CHROME_CSS = (
     ":root{--pink:#E8186E;--pink-light:#FFF0F6;--pink-border:#F9A8C9;--pink-dark:#C9145F;"
     "--bg:#F6F5F2;--surface:#FFFFFF;--surface2:#F0EEE9;--border:rgba(0,0,0,0.08);"
@@ -124,8 +124,8 @@ CHROME_CSS = (
     ".nav-logo-mark{width:30px;height:30px;border-radius:8px;flex-shrink:0}"
     ".nav-logo-text{font-size:15px;font-weight:700;letter-spacing:-0.3px}"
     ".nav-logo-tagline{font-size:9px;font-weight:500;color:var(--text2);letter-spacing:0.1px}"
-    # UX3-2: la insignia Beta NO se muestra en el nav (Beta vive en el cuerpo de la home). Solo
-    # reaparece en STAGING como aviso AZUL de PRE-PROD (el azul es la senal de entorno de pruebas del PO).
+    # The Beta badge is NOT shown in the nav: Beta lives in the body of the home page. It only
+    # comes back on STAGING as a BLUE notice, blue being the signal for a test environment.
     ".beta-badge{display:none;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--pink);"
     "background:var(--pink-light);border:0.5px solid var(--pink-border);border-radius:5px;padding:2px 5px;margin-left:7px}"
     "body.staging-env .nav{background:rgba(214,228,251,0.92);border-bottom-color:#bcd3f5}"
@@ -143,13 +143,13 @@ CHROME_CSS = (
     ".btn-primary{display:inline-block;padding:8px 18px;font-size:13px;font-weight:600;color:#fff;background:var(--pink);"
     "border-radius:var(--r-sm);box-shadow:var(--shadow-pink)}.btn-primary:hover{background:var(--pink-dark)}"
     ".footer{border-top:0.5px solid var(--border)}.footer a{color:var(--pink)}"
-    # UX3-3: los enlaces Inicio/Acerca de/Conversaciones se ocultan cuando no caben (tablet portrait
+    # The Home, About and Conversations links are hidden when they do not fit (tablet portrait
     # incluida); reaparecen en ancho (landscape/escritorio). UX3-2: ES/EN en columna en movil estrecho.
     "@media(max-width:960px){.nav-links{display:none}}"
     "@media(max-width:768px){.langsw{flex-direction:column;gap:0;line-height:1.05;margin:0 8px}.nav-logo-text{white-space:nowrap}}"
 )
 
-# Marca de PRE-PROD por hostname (mismo snippet que la landing) -> tema azul + insignia.
+# Staging marker by hostname, the same snippet as the landing page: blue theme plus badge.
 STAGING_JS = ("<script>if(/^staging\\./.test(location.hostname)){document.body.classList.add('staging-env');"
               "document.title='[PRE-PROD] '+document.title;var b=document.getElementById('envBadge');"
               "if(b)b.textContent='PRE-PROD';}</script>")

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """FASE 36.2 — Catalogo publico ("banco de preguntas").
 
-Reune TODAS las conversaciones publicas (curadas + el resto), menos el Nivel 0
+Gathers ALL public conversations, curated or not, except the ones excluded on purpose.
 (indices, hilo 'general' de prueba, debug, duplicados numerados). Las curadas usan su
-titulo/desc de la galeria; el resto deriva su titulo de la PRIMERA pregunta del moderador
-(los HTML horneados llevan los mensajes en un JSON oculto). Asi el banco se llena SOLO,
-sin mantener una segunda lista a mano. Fuente compartida con el SEO de la Fase 36.
+Curated ones take their title and description from the gallery; the rest derive a title
+from the moderator's FIRST question, read from the hidden JSON inside the baked HTML.
+So the bank fills itself, with no second list to maintain, sharing its source with the SEO.
 """
 import html as _html
 import json
@@ -21,7 +21,7 @@ from share_page import _plain, _truncate_words
 CONV_BASE = (Path(__file__).parent.parent / "conversations").resolve()
 
 # Nivel 0: NO son conversaciones publicables (indices, hilo 'general' de prueba, debug,
-# duplicados numerados tipo conv2/conversa5). Se excluyen del banco y del sitemap.
+# numbered duplicates such as conv2/conversa5. They are kept out of the bank and the sitemap.
 _NIVEL0_RE = re.compile(r"(?i)(?:^|/)(?:conversationsindex|test_|browserdialog)|_general_|conv(?:ersa)?\d")
 _MSG_RE = re.compile(r'<script type="application/json" id="messages-data">(.*?)</script>', re.DOTALL)
 _NAME_DATE_RE = re.compile(r"(20\d{2})-?(\d{2})-?(\d{2})")
@@ -40,7 +40,7 @@ def _messages(path):
 
 
 def derive_title(messages, n=90):
-    """Titulo = primera pregunta (el primer mensaje suele ser del moderador), en texto plano
+    """The title is the first question, since the first message is usually the moderator's, as plain text
     y cortado por palabra completa."""
     if not messages:
         return ""
@@ -62,9 +62,9 @@ def _display_date(iso):
 
 
 def build_catalog(base_url="", only_lang=None):
-    """Lista de dicts (una por conversacion publica), ordenada por fecha desc.
+    """A list of dicts, one per public conversation, newest first.
     Cada item: rel, lang, title, desc, section, date (display), iso, curated, url.
-    `only_lang` limita a un idioma (la pagina /preguntas muestra el idioma activo)."""
+    `only_lang` narrows it to one language; the /preguntas page shows the active one."""
     idx = i18n.GALLERY_SEO_INDEX
     items = []
     langs = (only_lang,) if only_lang in ("es", "en") else ("es", "en")
@@ -100,7 +100,7 @@ def _t(lang, key):
     return TRANSLATIONS.get(lang, TRANSLATIONS["es"]).get(key, key)
 
 
-# Solo lo ESPECIFICO del banco. El nav/footer/variables vienen de chrome.CHROME_CSS.
+# Only what is SPECIFIC to the bank. Nav, footer and variables come from chrome.CHROME_CSS.
 _BANK_CSS = (
     "*{margin:0;padding:0;box-sizing:border-box}"
     "body{font-family:var(--sans);background:var(--bg);color:var(--text);padding-top:60px}"
@@ -130,7 +130,7 @@ _BANK_CSS = (
 
 def render_bank(lang, base_url=""):
     """FASE 36.2 (T3/T4) — pagina /preguntas server-side (SEO real) + buscador y filtros
-    (tema/año) client-side. Muestra el idioma activo (como la galeria)."""
+    by topic and year, client-side. Shows the active language, like the gallery."""
     lang = lang if lang in TRANSLATIONS else "es"
     items = build_catalog(base_url, only_lang=lang)
     e = lambda s: _html.escape(s or "", quote=True)
@@ -176,7 +176,7 @@ def render_bank(lang, base_url=""):
         f'<link rel="canonical" href="{e(base_url + "/preguntas")}">'
         f"<style>{chrome.CHROME_CSS}{_BANK_CSS}</style></head><body>"
     )
-    # Header y footer = COMPONENTE compartido (chrome), el MISMO que la home.
+    # Header and footer are a shared component (chrome), the SAME one the home page uses.
     header = chrome.render_nav(lang, active="conversations", mode="static")
     footer = chrome.render_footer(lang, mode="static")
     body = (

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """FASE 34 (T2) — Render SERVER-SIDE de una conversacion compartida.
 
-La pagina publica /c/<token> se dibuja AQUI, a partir del snapshot (datos en crudo:
-mensajes + nombre del moderador + idioma). El servidor escapa el texto el mismo
-(anti-XSS, porque es una pagina publica) y aplica un markdown minimo. Reproduce la
+The public page /c/<token> is rendered HERE from the snapshot, which holds raw data:
+messages, the moderator's name and the language. The server escapes the text itself
+(anti-XSS, since this is a public page) and applies a minimal markdown. It reproduces the
 estetica del export del chat (burbujas estilo WhatsApp) + tarjeta social (Open Graph)
-+ marco i18n + pie "Hecho con H2AI Chat" para traer trafico.
++ an i18n frame + a "Made with H2AI Chat" footer to bring traffic in.
 """
 import re
 import html as _html
@@ -106,7 +106,7 @@ _TABLE_SEP_RE = re.compile(r"^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?$")
 
 
 def _is_table_sep(line):
-    """Fila separadora de una tabla GFM (|---|---| con dos por celda; admite : de alineacion)."""
+    """Separator row of a GFM table (|---|---|, at least two dashes per cell; alignment colons allowed)."""
     s = (line or "").strip()
     return bool(s) and "-" in s and "|" in s and bool(_TABLE_SEP_RE.match(s))
 
@@ -184,8 +184,8 @@ def _name(sender, mod_sender, mod_name):
 
 
 def _render_body(snapshot, lang):
-    """Leyenda + burbujas, replicando el export (estilo WhatsApp). `lang` = idioma del
-    VISITANTE (para las etiquetas de ronda); el texto de los mensajes va tal cual."""
+    """Legend and bubbles, mirroring the export. `lang` is the VISITOR's language, used for
+    the round labels; the message text is left exactly as it is."""
     messages = snapshot.get("messages", [])
     mod_sender = snapshot.get("mod_sender", "miguel")
     mod_name = snapshot.get("mod_name") or "Moderador"
@@ -239,11 +239,11 @@ def _render_body(snapshot, lang):
 
 def render_shared_page(snapshot, lang, base_url, token, embed=False):
     """Pagina publica completa: cabecera i18n + tarjeta social (OG/Twitter) + conversacion + pie.
-    FASE 36.2: `embed=True` -> version "desnuda" (sin barra) para incrustar en blogs."""
+    `embed=True` gives the bare version, with no bar, for embedding in blogs."""
     messages = snapshot.get("messages", [])
     count = snapshot.get("count", len(messages))
-    # El titulo es la primera pregunta del moderador, derivada de los mensajes (siempre completa,
-    # tambien en enlaces antiguos) -> no depende de un campo "title" que pudiera estar truncado.
+    # The title is the moderator's first question, derived from the messages, so it is always
+    # complete, including on old links, and never depends on a "title" field that might be truncated.
     mod_sender = snapshot.get("mod_sender", "miguel")
     _first_q = next((m.get("body", "") for m in messages if m.get("sender") == mod_sender),
                     (messages[0].get("body", "") if messages else ""))
@@ -278,13 +278,13 @@ def render_shared_page(snapshot, lang, base_url, token, embed=False):
         % (e(content_lang), e(title_short), e(desc), e(title_short), e(desc), e(og_img), e(og_url),
            e(title_short), e(desc), e(og_img), _CSS)
     )
-    # FASE 36.2 (T5/T6): la pagina embebida no debe indexarse (canonical -> version normal).
+    # The embedded page must not be indexed; its canonical points at the normal version.
     if embed:
         head = head.replace(
             "</head>",
             '<meta name="robots" content="noindex,follow">'
             '<link rel="canonical" href="%s"></head>' % e(og_url), 1)
-    # FASE 36.2 (T7): boton "Insertar" + recuadro con el <iframe> (solo en la pagina normal).
+    # An "Embed" button plus the box holding the <iframe>, on the normal page only.
     embed_url = base_url + "/c/" + token + "?embed=1"
     iframe = ('<iframe src="%s" width="100%%" height="600" '
               'style="border:1px solid #eee;border-radius:8px" loading="lazy"></iframe>' % embed_url)
@@ -321,11 +321,11 @@ def render_shared_page(snapshot, lang, base_url, token, embed=False):
               % (title_html, count, e(msgs_lbl), (" &middot; " + e(date)) if date else ""))
     footer = ('<footer><a href="%s/web">%s</a></footer></div></body></html>'
               % (base_url, e(made)))
-    # FASE 35 (AI Act Art. 50): aviso de contenido generado por IA, arriba (scrollea con la pagina).
+    # AI Act article 50: AI-generated content notice at the top, scrolling with the page.
     notice = ('<div style="background:#FFF3D6;border-bottom:1px solid #EBCF8A;color:#6B4E00;'
               'font-size:12px;line-height:1.5;padding:9px 18px;text-align:center">&#9888; %s</div>'
               % e(_t(lang, "ai.notice", "")))
     if embed:
-        # Embebido: sin barra (ni boton) — solo aviso AI Act + conversacion + pie con enlace de vuelta.
+        # Embedded: no bar and no button, just the AI Act notice, the conversation and a footer link back.
         return head + notice + header + _render_body(snapshot, lang) + footer
     return head + bar + embed_box + notice + header + _render_body(snapshot, lang) + footer
