@@ -3,7 +3,7 @@
 HumanIA - Autenticacion de usuarios (FASE 20.2)
 
 Usuarios, sesiones JWT, limites del free tier y presupuesto global.
-Opera sobre la misma BD SQLite del engine (memory/humania.db).
+Works on the same SQLite database as the engine (memory/humania.db).
 """
 import os
 import re
@@ -18,7 +18,7 @@ import jwt
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_DAYS = 7
 
-# Limites del free tier (decision PO 2026-06-11, ver plans/phase_20/PHASE_20_2.md 20.2i)
+# Free tier limits.
 FREE_DEBATES_PER_MONTH = 10  # subido de 3 a 10 para la fase de pruebas (PO 2026-06-13)
 FREE_MAX_ROUNDS = 3
 FREE_BUDGET_EUR_DEFAULT = "30"
@@ -27,7 +27,7 @@ UNVERIFIED_DEBATES_PER_DAY = 1
 VERIFICATION_EXPIRY_HOURS = 24
 RESET_EXPIRY_HOURS = 1
 # FASE 20.8b: version vigente de terminos y politica de privacidad
-# 2026-06-13: añadida limitacion de responsabilidad y refuerzo del disclaimer de IA
+# Includes the liability limitation and the reinforced AI disclaimer.
 TERMS_VERSION = "2026-06-13"
 # Estimacion conservadora por debate economico (OpenCode Go): rondas x bots x 0.005 EUR
 EST_COST_PER_BOT_ROUND_EUR = 0.005
@@ -47,7 +47,7 @@ def _jwt_secret() -> str:
 
 
 def auth_enforced() -> bool:
-    """La proteccion JWT se exige en produccion o si HUMANIA_AUTH=on (tests)."""
+    """JWT protection is enforced in production, or when HUMANIA_AUTH=on (used by tests)."""
     if os.environ.get("HUMANIA_AUTH", "").lower() == "on":
         return True
     return os.environ.get("HUMANIA_ENV", "dev") == "production"
@@ -183,10 +183,10 @@ def save_feedback(engine, kind, user_id=None, conversation_id=None, vote=None,
 
 
 def list_conversation_comments(engine, limit: int = 100):
-    """Comentarios de TEXTO que la gente deja al terminar una conversacion (kind='conversation'
-    con comment no vacio). Para el panel /admin, solo lectura. Sin paginacion aun (Fase 37.x):
-    devuelve los ultimos `limit`, mas reciente primero. Los pulgares sueltos sin texto NO entran
-    (ya se cuentan en la tarjeta de feedback)."""
+    """Written comments people leave at the end of a conversation (kind='conversation' with a
+    non-empty comment). Read-only, for the /admin panel. No pagination yet: it returns the
+    latest `limit`, newest first. Bare thumbs with no text are NOT included: they are already
+    counted on the feedback card."""
     conn = engine._get_conn()
     try:
         rows = conn.execute("""
@@ -220,7 +220,7 @@ def list_conversation_comments(engine, limit: int = 100):
 
 
 def admin_stats(engine):
-    """Métricas del panel /admin (todo desde la BD). Robusto: cada consulta tolera fallos."""
+    """Metrics for the /admin panel, all from the database. Each query tolerates failure on its own."""
     conn = engine._get_conn()
     def one(sql):
         try:
@@ -262,7 +262,7 @@ def admin_stats(engine):
 
 
 def set_share_consent(engine, user_id, thread_id, consent):
-    """Opt-in de publicación por conversación (consentimiento explícito y revocable). Default: privado."""
+    """Per-conversation publishing opt-in: explicit, revocable consent. Private by default."""
     conn = engine._get_conn()
     if consent:
         conn.execute("INSERT OR REPLACE INTO conversation_share (thread_id, user_id, consented_at) VALUES (?,?,datetime('now'))",
@@ -291,10 +291,10 @@ def list_shared_threads(engine, user_id):
         conn.close()
 
 
-# ── Enlace público por conversación (Fase 34) ────────────────────────────────
-# DISTINTO de conversation_share (galeria de la home): esto es un enlace publico,
-# inadivinable y revocable, con un SNAPSHOT inmutable de la conversacion en el
-# momento de compartir. 'Actualizar enlace' re-congela el snapshot sobre el MISMO
+# ── Public link per conversation ────────────────────────────────────────────
+# DIFFERENT from conversation_share, which feeds the home gallery: this is a public,
+# unguessable, revocable link holding an immutable SNAPSHOT of the conversation as it
+# was when shared. 'Refresh link' re-freezes the snapshot behind the SAME
 # token; revocar lo apaga y un nuevo compartir genera un token nuevo.
 
 def _new_share_token():
@@ -302,8 +302,8 @@ def _new_share_token():
 
 
 def create_or_update_share_link(engine, user_id, thread_id, snapshot):
-    """Crea el enlace publico de una conversacion o, si ya hay uno activo, re-congela su
-    snapshot SOBRE EL MISMO token ('Actualizar enlace'). Devuelve el token."""
+    """Creates the public link of a conversation or, if one is already active, re-freezes its
+    snapshot BEHIND THE SAME token. Returns the token."""
     conn = engine._get_conn()
     try:
         row = conn.execute(
@@ -325,7 +325,7 @@ def create_or_update_share_link(engine, user_id, thread_id, snapshot):
 
 
 def get_share_link(engine, token):
-    """Devuelve el enlace (dict con snapshot) por su token si existe y NO esta revocado;
+    """Returns the link (a dict with the snapshot) by its token if it exists and is NOT revoked;
     si no, None. Lo usa la pagina publica /c/<token>."""
     conn = engine._get_conn()
     try:
@@ -338,7 +338,7 @@ def get_share_link(engine, token):
 
 
 def get_share_link_for_thread(engine, user_id, thread_id):
-    """Estado del enlace de una conversacion para la UI (token activo o None)."""
+    """State of a conversation's link for the UI: the active token, or None."""
     conn = engine._get_conn()
     try:
         r = conn.execute(
@@ -350,7 +350,7 @@ def get_share_link_for_thread(engine, user_id, thread_id):
 
 
 def revoke_share_link(engine, user_id, thread_id):
-    """Apaga el enlace de una conversacion. La URL deja de mostrarla. Reactivar dara uno nuevo."""
+    """Switches off a conversation's link. The URL stops showing it; re-enabling gives a new one."""
     conn = engine._get_conn()
     try:
         conn.execute("UPDATE shared_conversation SET revoked=1 WHERE user_id=? AND thread_id=?",
@@ -373,9 +373,9 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-# Un hash de mentira contra el que comparar cuando el usuario NO existe: bcrypt tarda ~100 ms, y
-# si solo se ejecutara para los correos que existen, ese retraso delataria que la cuenta esta ahi.
-# Comparar siempre —contra el real o contra este— iguala los tiempos y cierra ese canal.
+# A decoy hash to compare against when the user does NOT exist. bcrypt takes around 100 ms,
+# and if it only ran for addresses that exist, that delay would reveal which accounts do.
+# Always comparing, against the real hash or this one, evens out the timing and closes that channel.
 _HASH_SENUELO = bcrypt.hashpw(b"x", bcrypt.gensalt()).decode("utf-8")
 
 
@@ -396,15 +396,15 @@ def create_token(user_id: int, email: str, name: str, plan: str) -> str:
 
 
 def decode_token(engine, token: str):
-    """Devuelve el payload del token o None si es invalido, expirado o revocado."""
+    """Returns the token payload, or None if it is invalid, expired or revoked."""
     try:
         payload = jwt.decode(token, _jwt_secret(), algorithms=[JWT_ALGORITHM])
     except jwt.InvalidTokenError:
         return None
     conn = engine._get_conn()
     revoked = conn.execute("SELECT 1 FROM revoked_tokens WHERE jti=?", (payload.get("jti", ""),)).fetchone()
-    # FASE 23: sesiones invalidadas en bloque (baneo/borrado de cuenta). Si el usuario tiene
-    # un sello sessions_invalid_before posterior al iat del token, el token deja de valer.
+    # Sessions invalidated in bulk (a ban, or an account deletion). If the user carries a
+    # sessions_invalid_before stamp later than the token's iat, the token stops being valid.
     inv = None
     sub = payload.get("sub")
     if sub is not None:
@@ -438,7 +438,7 @@ def revoke_token(engine, token: str) -> bool:
 # ── Registro y login ─────────────────────────────────────────────────────────
 
 def validate_registration(email: str, password: str, name: str):
-    """Devuelve un mensaje de error o None si todo es valido."""
+    """Returns an error message, or None when everything checks out."""
     if not email or not EMAIL_RE.match(email):
         return "Email no valido"
     if not password or len(password) < 8:
@@ -450,7 +450,7 @@ def validate_registration(email: str, password: str, name: str):
 
 def register_user(engine, email: str, password: str, name: str = "", accept_terms: bool = False,
                   confirm_adult: bool = False):
-    """Crea el usuario y devuelve (token, user_dict). Lanza ValueError si falla la validacion."""
+    """Creates the user and returns (token, user_dict). Raises ValueError if validation fails."""
     if not accept_terms:
         raise ValueError("Debes aceptar los terminos y la politica de privacidad")
     if not confirm_adult:
@@ -468,8 +468,8 @@ def register_user(engine, email: str, password: str, name: str = "", accept_term
         "INSERT INTO users (email, password_hash, name, plan, created_at, last_login, accepted_terms_at, terms_version, confirmed_adult_at) VALUES (?,?,?,?,?,?,?,?,?)",
         (email, hash_password(password), (name or "").strip(), "free", now, now, now, TERMS_VERSION, now))
     user_id = cur.lastrowid
-    # Anti-abuso: si este email ya consumio free este mes (borrarse + re-registrarse),
-    # restaurar el consumo para que NO se reinicien los creditos gratuitos.
+    # Anti-abuse: if this address already used its free quota this month by deleting the
+    # account and signing up again, restore that usage so the free credits do NOT reset.
     _tl = conn.execute("SELECT debates FROM trial_log WHERE email_hash=? AND month=?",
                        (_email_hash(email), _current_month())).fetchone()
     if _tl and _tl["debates"]:
@@ -482,12 +482,12 @@ def register_user(engine, email: str, password: str, name: str = "", accept_term
 
 
 def login_user(engine, email: str, password: str):
-    """Devuelve (token, user_dict) o None si las credenciales no son validas."""
+    """Returns (token, user_dict), or None when the credentials are not valid."""
     email = (email or "").strip().lower()
     conn = engine._get_conn()
     row = conn.execute("SELECT * FROM users WHERE email=? AND status='active'", (email,)).fetchone()
-    # Se compara SIEMPRE, tambien cuando el correo no existe, contra un hash de mentira: si bcrypt
-    # solo corriera para los correos que existen, la diferencia de tiempo diria cuales tienen cuenta.
+    # The comparison ALWAYS runs, even when the address does not exist, against a decoy hash.
+    # If bcrypt only ran for addresses that exist, the timing would tell which ones have an account.
     if not verify_password(password or "", row["password_hash"] if row else _HASH_SENUELO) or not row:
         conn.close()
         return None
@@ -517,7 +517,7 @@ def user_thread_prefix(user_id: int) -> str:
 
 
 def scope_thread(user: dict, thread_id: str) -> str:
-    """Prefija el thread con el id del usuario. El usuario dev (id 0) no se aisla."""
+    """Prefixes the thread with the user id. The dev user (id 0) is not isolated."""
     thread_id = thread_id or "general"
     if not user or user.get("user_id", 0) == 0:
         return thread_id
@@ -526,7 +526,7 @@ def scope_thread(user: dict, thread_id: str) -> str:
 
 
 def visible_to_user(user: dict, thread_id: str) -> bool:
-    """El usuario dev ve todo; un usuario real solo sus threads."""
+    """The dev user sees everything; a real user sees only their own threads."""
     if not user or user.get("user_id", 0) == 0:
         return True
     return (thread_id or "general").startswith(user_thread_prefix(user["user_id"]))
@@ -539,7 +539,7 @@ def _current_month() -> str:
 
 
 def _email_hash(email: str) -> str:
-    """Hash del email para el registro anti-abuso (pseudonimizado, sobrevive al borrado)."""
+    """Hash of the address for the anti-abuse ledger: pseudonymised, and it survives deletion."""
     return hashlib.sha256((email or "").strip().lower().encode("utf-8")).hexdigest()
 
 
@@ -564,7 +564,7 @@ def estimate_debate_cost(rounds: int, n_bots: int) -> float:
 
 
 def _free_budget_state(engine):
-    """Devuelve (gastado, presupuesto) del mes en curso, reseteando si cambio el mes."""
+    """Returns (spent, budget) for the current month, resetting when the month rolls over."""
     month = _current_month()
     if engine.get_setting("free_spent_month") != month:
         engine.set_setting("free_spent_month", month)
@@ -588,7 +588,7 @@ def check_free_limits(engine, user: dict):
 
 
 def record_debate(engine, user: dict, rounds: int, n_bots: int, tokens: dict = None):
-    """Registra una orquestacion, su coste estimado y los tokens reales consumidos.
+    """Records an orchestration, its estimated cost and the tokens actually consumed.
     El usuario dev (id 0) no consume. `tokens` = {prompt, completion, reasoning, total}."""
     if not user or user.get("user_id", 0) == 0:
         return
@@ -618,7 +618,7 @@ def record_debate(engine, user: dict, rounds: int, n_bots: int, tokens: dict = N
 
 
 def free_safe_bots_config(bots_config: dict, fallback: dict) -> dict:
-    """Para usuarios free: jamas OpenRouter (leccion 25). Si el config global lo usa, cae al fallback economico."""
+    """Free users never reach OpenRouter. If the global config uses it, they fall back to the economy provider."""
     if any(cfg.get("provider") == "openrouter" for cfg in bots_config.values()):
         return dict(fallback)
     return bots_config
@@ -627,7 +627,7 @@ def free_safe_bots_config(bots_config: dict, fallback: dict) -> dict:
 # ── Tokens de un solo uso: verificacion de email (20.4) y reset de password (20.3) ──
 
 def _create_one_time_token(engine, table: str, user_id: int, expiry_hours: int) -> str:
-    """Genera un token nuevo e invalida los anteriores del usuario en esa tabla."""
+    """Issues a new token and invalidates the user's previous ones in that table."""
     token = secrets.token_urlsafe(32)
     expires = (datetime.now(timezone.utc) + timedelta(hours=expiry_hours)).isoformat()
     conn = engine._get_conn()
@@ -645,10 +645,10 @@ def _consume_one_time_token(engine, table: str, token: str):
         return None
     now = datetime.now(timezone.utc).isoformat()
     conn = engine._get_conn()
-    # El marcado de usado va EN LA MISMA orden que lo comprueba (`UPDATE ... WHERE used=0`), no en
-    # dos pasos: con un SELECT y luego un UPDATE aparte, dos peticiones a la vez con el mismo token
-    # pueden leer las dos `used=0` y consumirlo dos veces. Si el UPDATE no toca ninguna fila, otro
-    # llego antes. `table` es una constante del codigo, nunca entrada del usuario.
+    # Marking it used happens IN THE SAME statement that checks it (`UPDATE ... WHERE used=0`),
+    # not in two steps: with a SELECT and then a separate UPDATE, two simultaneous requests
+    # carrying the same token could both read `used=0` and spend it twice. If the UPDATE touches
+    # no rows, someone else got there first. `table` is a code constant, never user input.
     cur = conn.execute(
         f"UPDATE {table} SET used=1 WHERE token=? AND used=0 AND expires_at > ?", (token, now))
     if cur.rowcount != 1:
@@ -676,7 +676,7 @@ def verify_email(engine, token: str) -> bool:
 
 
 def create_password_reset(engine, email: str):
-    """Devuelve (token, user) o None si el email no existe. La API nunca revela cual fue."""
+    """Returns (token, user), or None when the address does not exist. The API never reveals which."""
     conn = engine._get_conn()
     row = conn.execute("SELECT id, email FROM users WHERE email=? AND status='active'",
                        ((email or "").strip().lower(),)).fetchone()
@@ -694,10 +694,10 @@ def reset_password(engine, token: str, new_password: str) -> bool:
     if user_id is None:
         return False
     conn = engine._get_conn()
-    # SE SELLAN LAS SESIONES, y no es un adorno. La razon normal para restablecer la contrasenia
-    # es sospechar que alguien ha entrado en tu cuenta — y si solo se cambia el hash, el intruso
-    # sigue dentro con su token hasta que caduque. El mecanismo ya existia (sessions_invalid_before,
-    # el mismo que corta las sesiones al suspender): faltaba usarlo tambien aqui.
+    # SESSIONS ARE SEALED HERE, and that is not decoration. The usual reason to reset a password
+    # is suspecting someone got into your account, and changing only the hash leaves the intruder
+    # inside with their token until it expires. The mechanism already existed
+    # (sessions_invalid_before, the same one that cuts sessions on suspension); it just was not used here.
     conn.execute("UPDATE users SET password_hash=?, sessions_invalid_before=? WHERE id=?",
                  (hash_password(new_password), datetime.now(timezone.utc).isoformat(), user_id))
     conn.commit()
@@ -710,7 +710,7 @@ def reset_password(engine, token: str, new_password: str) -> bool:
 # ── GDPR (FASE 20.8): acceso, portabilidad, supresion y minimizacion ─────────
 
 def export_user_data(engine, user_id: int) -> dict:
-    """Art. 15/20 RGPD: todos los datos del usuario en JSON portable."""
+    """GDPR articles 15 and 20: all of the user's data as portable JSON."""
     conn = engine._get_conn()
     user_row = conn.execute(
         "SELECT id, email, name, plan, status, created_at, last_login, email_verified, accepted_terms_at, terms_version "
@@ -736,13 +736,13 @@ def verify_user_password(engine, user_id: int, password: str) -> bool:
 
 
 def delete_account(engine, user_id: int) -> bool:
-    """Art. 17 RGPD: supresion completa del usuario y todos sus datos."""
+    """GDPR article 17: complete erasure of the user and all their data."""
     conn = engine._get_conn()
     if not conn.execute("SELECT 1 FROM users WHERE id=?", (user_id,)).fetchone():
         conn.close()
         return False
-    # Anti-abuso (interes legitimo): conservar el consumo free por HASH del email (sobrevive
-    # al borrado) para que re-registrarse no reinicie los creditos del mes. Sin PII, solo el hash.
+    # Anti-abuse, on legitimate interest: free usage is kept under a HASH of the address, which
+    # survives deletion, so signing up again does not reset the month's credits. No personal data, just the hash.
     _u = conn.execute("SELECT email FROM users WHERE id=?", (user_id,)).fetchone()
     if _u:
         _eh = _email_hash(_u["email"])
@@ -763,7 +763,7 @@ def delete_account(engine, user_id: int) -> bool:
 
 
 def cleanup_expired(engine):
-    """Minimizacion (20.8e): purga tokens caducados hace >30 dias y revocaciones cuyo JWT ya expiro."""
+    """Data minimisation: purges tokens that expired over 30 days ago, and revocations whose JWT is already dead."""
     now = datetime.now(timezone.utc)
     cutoff_tokens = (now - timedelta(days=30)).isoformat()
     cutoff_revoked = (now - timedelta(days=JWT_EXPIRY_DAYS)).isoformat()
@@ -771,8 +771,8 @@ def cleanup_expired(engine):
     conn.execute("DELETE FROM email_verifications WHERE expires_at < ?", (cutoff_tokens,))
     conn.execute("DELETE FROM password_resets WHERE expires_at < ?", (cutoff_tokens,))
     conn.execute("DELETE FROM revoked_tokens WHERE revoked_at < ?", (cutoff_revoked,))
-    # Anti-abuso: el registro de consumo free por hash se conserva 12 meses (decision PO) y
-    # luego se purga (minimizacion RGPD: el hash no se guarda mas de lo necesario).
+    # Anti-abuse: the hashed free-usage ledger is kept for 12 months and then purged, so the
+    # hash is not stored longer than needed.
     conn.execute("DELETE FROM trial_log WHERE month < strftime('%Y-%m','now','-12 months')")
     conn.commit()
     conn.close()
@@ -804,7 +804,7 @@ VALID_STATUS = ("active", "suspended")
 
 
 def list_users(engine, query: str = None, limit: int = 50, offset: int = 0):
-    """Listado paginado de usuarios para el panel admin, con su uso del mes en curso.
+    """Paginated list of users for the admin panel, with their usage for the current month.
     Devuelve {users:[...], total:int}. `query` filtra por email o nombre."""
     month = _current_month()
     where, params = "", []
@@ -858,7 +858,7 @@ def _user_exists(conn, user_id: int) -> bool:
 
 
 def set_user_name(engine, user_id: int, name: str) -> str:
-    """FASE 29: cambia el nombre del usuario (con el que las IAs le llaman en los debates).
+    """Changes the user's name, the one the AIs use to address them in debates.
     Devuelve el nombre guardado (recortado a 60 chars)."""
     name = (name or "").strip()[:60]
     conn = engine._get_conn()
@@ -869,7 +869,7 @@ def set_user_name(engine, user_id: int, name: str) -> str:
 
 
 def set_plan(engine, user_id: int, plan: str) -> bool:
-    """Cambia la tarifa (free/premium). Devuelve False si el usuario no existe."""
+    """Changes the plan (free/premium). Returns False when the user does not exist."""
     if plan not in VALID_PLANS:
         raise ValueError(f"plan invalido: {plan}")
     conn = engine._get_conn()
@@ -884,7 +884,7 @@ def set_plan(engine, user_id: int, plan: str) -> bool:
 
 def set_status(engine, user_id: int, status: str) -> bool:
     """Activa/suspende un usuario. Al suspender, invalida TODAS sus sesiones vivas
-    (sella sessions_invalid_before=now), no solo los logins futuros."""
+    (it stamps sessions_invalid_before=now), not just future logins."""
     if status not in VALID_STATUS:
         raise ValueError(f"status invalido: {status}")
     conn = engine._get_conn()
@@ -902,7 +902,7 @@ def set_status(engine, user_id: int, status: str) -> bool:
 
 
 def reset_usage(engine, user_id: int) -> bool:
-    """Borra el consumo del mes en curso de un usuario (cortesia / correccion)."""
+    """Clears a user's usage for the current month, as a courtesy or a correction."""
     conn = engine._get_conn()
     if not _user_exists(conn, user_id):
         conn.close()
@@ -914,7 +914,7 @@ def reset_usage(engine, user_id: int) -> bool:
 
 
 def admin_verify_email(engine, user_id: int) -> bool:
-    """Marca el email como verificado a mano (usuario que no recibio el correo)."""
+    """Marks the address as verified by hand, for a user who never got the email."""
     conn = engine._get_conn()
     if not _user_exists(conn, user_id):
         conn.close()
@@ -926,7 +926,7 @@ def admin_verify_email(engine, user_id: int) -> bool:
 
 
 def admin_create_verification(engine, user_id: int):
-    """Genera un token de verificacion para reenviar el correo. Devuelve (token, email) o None."""
+    """Issues a verification token so the email can be sent again. Returns (token, email) or None."""
     conn = engine._get_conn()
     row = conn.execute("SELECT email FROM users WHERE id=?", (user_id,)).fetchone()
     conn.close()
@@ -948,7 +948,7 @@ def admin_create_password_reset(engine, user_id: int):
 # ── Monitor de arranques del sistema (FASE 23) ───────────────────────────────
 
 def record_startup(engine, env: str = None, version: str = None, keep: int = 200):
-    """Registra un arranque del proceso. Conserva solo los ultimos `keep`."""
+    """Records a process start-up, keeping only the latest `keep`."""
     conn = engine._get_conn()
     conn.execute("INSERT INTO startups (started_at, env, version) VALUES (?,?,?)",
                  (datetime.now(timezone.utc).isoformat(),
@@ -960,7 +960,7 @@ def record_startup(engine, env: str = None, version: str = None, keep: int = 200
 
 
 def list_startups(engine, limit: int = 50):
-    """Ultimos arranques (mas reciente primero) para detectar reinicios/caidas."""
+    """Latest start-ups, newest first, to spot restarts and crashes."""
     conn = engine._get_conn()
     rows = conn.execute("SELECT started_at, env, version FROM startups ORDER BY id DESC LIMIT ?",
                         (int(limit),)).fetchall()
@@ -969,11 +969,11 @@ def list_startups(engine, limit: int = 50):
 
 
 # ── Tiempos de orquestacion (FASE 25 / 26): desglose A-E persistido ──────────
-# Se guarda en el SERVIDOR al terminar la orquestacion, asi sobrevive aunque el
+# Stored on the SERVER when the orchestration ends, so it survives even if the
 # cliente reciba un 504 (la orquestacion termina en backend aunque nginx corte).
 
 def record_orch_time(engine, user_id, thread_id, rounds, bots, tiempos, total_tokens, keep: int = 500):
-    """Persiste el desglose A-E de una orquestacion. Conserva las ultimas `keep`."""
+    """Stores the A-E breakdown of an orchestration, keeping the latest `keep`."""
     conn = engine._get_conn()
     conn.execute(
         "INSERT INTO orch_times (created_at, user_id, thread_id, rounds, bots, wall_ms, llm_ms, "
@@ -988,7 +988,7 @@ def record_orch_time(engine, user_id, thread_id, rounds, bots, tiempos, total_to
 
 
 def list_orch_times(engine, limit: int = 50):
-    """Ultimas orquestaciones con su desglose A-E (mas reciente primero) + medias."""
+    """Latest orchestrations with their A-E breakdown, newest first, plus averages."""
     conn = engine._get_conn()
     rows = [dict(r) for r in conn.execute(
         "SELECT created_at, user_id, thread_id, rounds, bots, wall_ms, llm_ms, lock_ms, "
@@ -1002,10 +1002,10 @@ def list_orch_times(engine, limit: int = 50):
     return {"items": rows, "avg": avg}
 
 
-# ── Salud del sistema (FASE 28): muestras periódicas RAM/CPU/disco/capacidad ──
+# ── System health: periodic samples of RAM, CPU, disk and capacity ──────────
 
 def record_system_health(engine, sample: dict, keep: int = 5000):
-    """Persiste una muestra de salud del sistema. Conserva las últimas `keep`."""
+    """Stores one system health sample, keeping the latest `keep`."""
     conn = engine._get_conn()
     conn.execute(
         "INSERT INTO system_health (created_at, ram_pct, swap_pct, cpu_pct, disk_used_pct, "
@@ -1023,7 +1023,7 @@ def record_system_health(engine, sample: dict, keep: int = 5000):
 
 
 def list_system_health(engine, hours: int = 24, limit: int = 2000):
-    """Muestras de las últimas `hours` horas (más antigua primero, para graficar)."""
+    """Samples from the last `hours` hours, oldest first, ready to plot."""
     conn = engine._get_conn()
     rows = [dict(r) for r in conn.execute(
         "SELECT created_at, ram_pct, swap_pct, cpu_pct, disk_used_pct, disk_free_pct, "
@@ -1036,11 +1036,11 @@ def list_system_health(engine, hours: int = 24, limit: int = 2000):
 
 
 def reset_observability_stats(engine):
-    """Vacía las métricas de OBSERVABILIDAD para empezar una medición limpia (botón
-    'Reiniciar' del panel). Vacía la gráfica de salud + el RÉCORD DE PICO + los tiempos,
-    y limpia los mensajes basura del arnés de carga (threads 'load_%').
+    """Clears the OBSERVABILITY metrics to start a clean measurement (a button
+    labelled 'Reset' on the panel). It clears the health chart, the PEAK RECORD and the timings,
+    and clears the junk messages left by the load harness (threads 'load_%').
     NO toca: cuentas, planes, conversaciones reales ('user_%'), feedback ni settings.
-    Devuelve cuántas filas borró de cada cosa."""
+    Returns how many rows it deleted of each kind."""
     conn = engine._get_conn()
     n_health = conn.execute("DELETE FROM system_health").rowcount
     n_times = conn.execute("DELETE FROM orch_times").rowcount
@@ -1051,7 +1051,7 @@ def reset_observability_stats(engine):
 
 
 def get_system_peak(engine):
-    """La muestra de MÁXIMA capacidad alcanzada, con sus condiciones y fecha-hora."""
+    """The sample with the HIGHEST capacity reached, with its conditions and timestamp."""
     conn = engine._get_conn()
     row = conn.execute(
         "SELECT created_at, ram_pct, swap_pct, cpu_pct, disk_used_pct, disk_free_pct, "
@@ -1062,7 +1062,7 @@ def get_system_peak(engine):
 
 
 # ── Preferencias por usuario (FASE 27): rondas, tokens, creatividad ──────────
-# Cada usuario guarda SUS valores; la orquestacion los aplica acotados a su plan.
+# Each user stores THEIR own values; orchestration applies them bounded by their plan.
 
 def get_user_prefs(engine, user_id) -> dict:
     if not user_id:
