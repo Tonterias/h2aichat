@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
-"""FASE 28 — Arnés de prueba de carga "a tope hasta que caiga".
+"""Load-test harness: push it until it falls over.
 
-Escala la concurrencia por escalones hasta que el servidor deja de responder,
-sondeando la salud (/api/admin/health) cada 1-2 s para capturar la ULTIMA lectura
-buena antes del quiebre = las CONDICIONES exactas de la caída. Repite el ciclo N
-veces (el PO quiere forzarlo varias veces, no una ni dos).
+Steps the concurrency up until the server stops answering, polling health
+(/api/admin/health) every second or two to capture the LAST good reading before the
+break, which is what gives the exact CONDITIONS of the fall. It repeats the cycle N
+times, because one run proves nothing.
 
-Dos perillas independientes (como pidió el PO):
+Two independent dials:
   --users   peticiones ligeras concurrentes (polling) ≈ usuarios conectados
   --orch    orquestaciones concurrentes = la carga PESADA real
 
-Modo por defecto GRATIS: rounds=0 (no llama a ningún LLM, 0 coste). Con --rounds>0
-y --opencode se hace realista (gasta OpenCode, tarifa plana).
+The default mode is FREE: rounds=0 calls no LLM at all and costs nothing. With --rounds>0
+and --opencode it becomes realistic, spending the flat-rate provider.
 
 Uso:
   python execution/scripts/load_test.py --base-url http://127.0.0.1:8000 \
       --token <TOKEN> --repeats 3 --max-level 256
 
-NUNCA apuntar a PROD a tope si hay usuarios. Hacer backup antes (lo hace el operador).
+NEVER point this at production at full tilt while users are on it. Back up first.
 """
 import argparse
 import json
@@ -27,24 +27,24 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Sin dependencias externas: solo stdlib (urllib). Así corre en cualquier sitio
-# (droplet incluido) sin tener que instalar 'requests'.
+# No external dependencies, just the standard library, so it runs anywhere,
+# the server included, without installing anything.
 
 
 def _auth(token):
-    # El token de operador es el MAESTRO (HUMANIA_TOKEN), NO un JWT: va por la cabecera
-    # X-Humania-Token, que da acceso de administracion. Si se mandara por
-    # 'Authorization: Bearer' el middleware intentaria decodificarlo como JWT y daria 401.
+    # The operator token is the MASTER one (HUMANIA_TOKEN), NOT a JWT: it goes in the
+    # X-Humania-Token header, which grants administration access. Sent as
+    # 'Authorization: Bearer' the middleware would try to decode it as a JWT and answer 401.
     return {"X-Humania-Token": token} if token else {}
 
 
 def _http(method, url, headers, data=None, timeout=30):
     """Devuelve (status, body_bytes). Lanza en errores de red/timeout (code 0 lo
-    pone quien llama). Los HTTP 4xx/5xx se devuelven con su código, no como excepción."""
+    set by the caller). HTTP 4xx and 5xx come back with their code, not as an exception."""
     body = json.dumps(data).encode() if data is not None else None
     h = dict(headers)
-    # Imitar a nginx: en produccion la app redirige (301) el HTTP directo a HTTPS si no
-    # ve esta cabecera. Sin esto, golpear 127.0.0.1:8000 daria 301 en vez de procesar.
+    # Imitate nginx: in production the app redirects plain HTTP to HTTPS with a 301 unless
+    # it sees this header. Without it, hitting 127.0.0.1:8000 would 301 instead of working.
     h["X-Forwarded-Proto"] = "https"
     if body is not None:
         h["Content-Type"] = "application/json"
@@ -57,7 +57,7 @@ def _http(method, url, headers, data=None, timeout=30):
 
 
 def fetch_health(base, token, timeout=4):
-    """Lee la salud en vivo. Devuelve el sample o None si el server no responde."""
+    """Reads live health. Returns the sample, or None when the server does not answer."""
     try:
         status, body = _http("GET", f"{base}/api/admin/health", _auth(token), timeout=timeout)
         if status == 200:
@@ -73,7 +73,7 @@ def one_orchestrate(base, token, rounds, thread_id, timeout):
         status, _ = _http("POST", f"{base}/orchestrate?rounds={rounds}&wait=1", _auth(token),
                           data={"recipient_id": "qwen_plus", "body": "carga",
                                 "sender_id": "miguel", "thread_id": thread_id}, timeout=timeout)
-        # OK = SOLO 2xx. Un 401/403/5xx o un fallo de conexion (code 0) cuenta como fallo real.
+        # OK means 2xx ONLY. A 401, 403, 5xx or a connection failure (code 0) counts as a real failure.
         return {"ms": (time.time() - t0) * 1000, "code": status, "ok": 200 <= status < 300}
     except Exception as e:
         return {"ms": (time.time() - t0) * 1000, "code": 0, "ok": False, "err": type(e).__name__}
@@ -81,7 +81,7 @@ def one_orchestrate(base, token, rounds, thread_id, timeout):
 
 def run_level(base, token, n_orch, n_users, rounds, timeout):
     """Lanza n_orch orquestaciones + n_users peticiones ligeras EN PARALELO.
-    Devuelve métricas del escalón y la salud justo después."""
+    Returns the metrics for the step and the health right after it."""
     results = []
     with ThreadPoolExecutor(max_workers=n_orch + n_users + 1) as ex:
         futs = []
@@ -89,7 +89,7 @@ def run_level(base, token, n_orch, n_users, rounds, timeout):
             futs.append(ex.submit(one_orchestrate, base, token, rounds, f"load_{i}", timeout))
         for i in range(n_users):
             futs.append(ex.submit(lambda: _light(base, token, timeout)))
-        # sondea salud a mitad del escalón (mientras hay carga en vuelo)
+        # poll health halfway through the step, while the load is still in flight
         time.sleep(0.5)
         mid_health = fetch_health(base, token)
         for f in as_completed(futs):
@@ -129,8 +129,8 @@ def _pct(vals, p):
 
 
 def ramp(base, token, rounds, max_level, users_ratio, timeout, fail_threshold=0.5):
-    """Sube la concurrencia (2,4,8,...) hasta que >50% de las orquestaciones fallan
-    o el server deja de responder. Devuelve los escalones y el QUIEBRE con condiciones."""
+    """Raises concurrency (2, 4, 8...) until more than half the orchestrations fail
+    or the server stops answering. Returns the steps and the BREAK, with its conditions."""
     steps, level, last_good_health = [], 2, None
     while level <= max_level:
         n_users = int(level * users_ratio)
@@ -144,8 +144,8 @@ def ramp(base, token, rounds, max_level, users_ratio, timeout, fail_threshold=0.
         if st["health"]:
             last_good_health = st["health"]
         # QUIEBRE = las orquestaciones empiezan a fallar de verdad (>=50%): 5xx o conexiones
-        # rechazadas (server saturado). Que no se pueda leer la salud NO cuenta como caida
-        # por si sola (puede ser solo permisos); se usa como dato informativo.
+        # rejected because the server is saturated. Failing to read health does NOT count as a
+        # fall on its own, since it may just be permissions; it is kept as information.
         if fail_ratio >= fail_threshold:
             return {"broke_at_level": level, "fail_ratio": round(fail_ratio, 2),
                     "server_down": alive is None, "conditions": last_good_health or st["health"], "steps": steps}

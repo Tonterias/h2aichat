@@ -2,18 +2,18 @@
 """
 HumanIA - Envio de avisos por Telegram (FASE 30+)
 
-Canal de alertas internas (saturacion/salud del servidor). Se eligio Telegram
-porque el droplet de PROD tiene BLOQUEADO el SMTP saliente (puertos 25/587/465,
-medida anti-spam de DigitalOcean) y porque asi las alertas NO consumen el cupo
-de Resend, reservado para el correo de los usuarios (verificacion / reset).
-La API de Telegram va por HTTPS (443), que si sale del droplet.
+Internal alert channel for saturation and server health. Telegram was chosen because
+the production host BLOCKS outgoing SMTP (ports 25, 587 and 465, an anti-spam measure
+at the hosting provider), and because this way alerts do NOT eat into the Resend quota,
+which is reserved for users' mail: verification and password resets.
+The Telegram API runs over HTTPS on port 443, which does leave the machine.
 
 Variables de entorno:
   HUMANIA_TELEGRAM_TOKEN    token del bot (de @BotFather)
   HUMANIA_TELEGRAM_CHAT_ID  id del chat destino
 
-Sin credenciales (dev/tests) NO se llama a la red: el mensaje se registra en
-memoria en SENT_TELEGRAM (mismo patron que el backend 'console' de email_sender).
+Without credentials (dev and tests) the network is NOT touched: the message is recorded
+in memory in SENT_TELEGRAM, the same pattern as email_sender's 'console' backend.
 """
 import os
 
@@ -21,7 +21,7 @@ import httpx
 
 API_URL = "https://api.telegram.org/bot{token}/sendMessage"
 
-# Registro en memoria de los envios en modo sin-credenciales (lo usan tests y UAT)
+# In-memory record of what would have been sent when there are no credentials.
 SENT_TELEGRAM = []
 MAX_SENT_LOG = 50
 
@@ -34,7 +34,7 @@ def send_telegram(text: str) -> bool:
     token = os.environ.get("HUMANIA_TELEGRAM_TOKEN", "")
     chat_id = os.environ.get("HUMANIA_TELEGRAM_CHAT_ID", "")
     if not token or not chat_id:
-        # dev/tests: sin credenciales, registra en memoria y no toca la red
+        # dev and tests: no credentials, record in memory and leave the network alone
         SENT_TELEGRAM.append({"chat_id": chat_id, "text": text})
         del SENT_TELEGRAM[:-MAX_SENT_LOG]
         return True
