@@ -20,9 +20,9 @@ class _SecurityHeadersMiddleware:
             await self.app(scope, receive, send)
             return
         _req_enter()  # FASE 28: peticiones HTTP en vuelo (~usuarios concurrentes)
-        # FASE 36.2 (T6): el EMBED necesita que sitios EXTERNOS puedan enmarcar la pagina.
-        # Se relaja el anti-clickjacking SOLO en las rutas de embed (`?embed=1` sobre una
-        # conversacion o un enlace compartido); el resto del sitio sigue con `DENY`/`'none'`.
+        # Embedding requires EXTERNAL sites to be able to frame the page, so the
+        # anti-clickjacking policy is relaxed ONLY on embed routes (`?embed=1` on a
+        # conversation or a shared link). The rest of the site keeps `DENY`/`'none'`.
         _p = scope.get("path", "")
         _is_embed = (b"embed=1" in scope.get("query_string", b"")
                      and (_p.startswith("/conversations/") or _p.startswith("/c/")))
@@ -38,18 +38,18 @@ class _SecurityHeadersMiddleware:
                     (b"x-content-type-options", b"nosniff"),
                     (b"referrer-policy", b"strict-origin-when-cross-origin"),
                     (b"permissions-policy", b"camera=(), microphone=(), geolocation=()"),
-                    # FASE 20.1-A2: red de seguridad contra XSS en el Markdown de los bots.
-                    # 'unsafe-inline' es necesario: la SPA y las paginas de auth llevan JS/CSS inline.
-                    # Origenes externos permitidos (hallazgo UAT PO 2026-06-12): iconos Tabler
-                    # (cdn.jsdelivr) y video Vimeo de la home dinamica. Nada mas.
+                    # Safety net against XSS coming from the bots' Markdown.
+                    # 'unsafe-inline' is required: the SPA and the auth pages carry inline JS/CSS.
+                    # Allowed external origins: Tabler icons (cdn.jsdelivr) and the Vimeo video
+                    # on the dynamic home page. Nothing else.
                     (b"content-security-policy",
                      b"default-src 'self'; script-src 'self' 'unsafe-inline' https://player.vimeo.com; "
                      b"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
                      b"font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:; "
                      b"connect-src 'self'; frame-src https://player.vimeo.com; frame-ancestors " + _frame_ancestors),
                 ])
-                # X-Frame-Options no admite lista blanca: en embed se OMITE (manda el CSP);
-                # fuera de embed se mantiene DENY.
+                # X-Frame-Options takes no allowlist, so it is OMITTED when embedding (the CSP
+                # rules there); everywhere else it stays DENY.
                 if not _is_embed:
                     headers.append((b"x-frame-options", b"DENY"))
                 if os.environ.get("HUMANIA_ENV", "dev") == "production":
@@ -83,9 +83,9 @@ import html as _htmlmod
 def _html_escape(s):
     return _htmlmod.escape(s or "", quote=True)
 
-# ── FASE 28: contadores "en vuelo" para el medidor de capacidad y la prueba de carga ──
-# Dos perillas separadas (como pidió el PO): peticiones HTTP en vuelo ≈ usuarios
-# concurrentes; orquestaciones en curso = la carga pesada real. Thread-safe + pico.
+# ── In-flight counters, for the capacity gauge and the load test ─────────────
+# Two separate dials: in-flight HTTP requests are roughly the number of
+# concurrent users; running orchestrations are the real heavy load. Thread-safe,
 _inflight_lock = _threading.Lock()
 _inflight = {"orch": 0, "requests": 0}
 _inflight_peak = {"orch": 0, "requests": 0}
@@ -121,7 +121,7 @@ def get_inflight():
         return dict(_inflight), dict(_inflight_peak)
 
 
-# FASE 28.5: salud de las llamadas LLM (acumulado desde el arranque)
+# Health of the LLM calls, accumulated since startup.
 _llm_stats = {"ok": 0, "timeout": 0, "error": 0, "rate_limited": 0}
 
 
@@ -138,7 +138,7 @@ def get_llm_stats():
     return s
 
 
-# FASE 28.6: errores 5xx acumulados desde el arranque
+# Server errors (5xx) accumulated since startup.
 _http_5xx = {"n": 0}
 
 
@@ -153,10 +153,10 @@ def get_http_5xx():
 
 
 def read_infra_health():
-    """FASE 28.6: caducidad del certificado TLS y frescura del último backup.
-    Best-effort: devuelve None en lo que no aplique (p. ej. en local sin cert)."""
+    """TLS certificate expiry and freshness of the latest backup.
+    Best effort: returns None for whatever does not apply (locally there is no cert)."""
     out = {"tls_days_left": None, "backup_age_hours": None, "host": None}
-    # TLS: días hasta caducar el certificado del dominio (solo en producción)
+    # TLS: days left before the domain certificate expires (production only).
     host = os.environ.get("HUMANIA_TLS_HOST") or ("h2aichat.com" if os.environ.get("HUMANIA_ENV") == "production" else None)
     out["host"] = host
     if host:
@@ -172,7 +172,7 @@ def read_infra_health():
             out["tls_days_left"] = round((exp - _dt.now(_tz.utc)).total_seconds() / 86400, 1)
         except Exception:
             pass
-    # Backup: antigüedad del fichero de backup más reciente (ruta configurable)
+    # Backup: age of the most recent backup file (path is configurable).
     bdir = os.environ.get("HUMANIA_BACKUP_PATH")
     if bdir and os.path.isdir(bdir):
         try:
@@ -187,7 +187,7 @@ def read_infra_health():
 
 
 def _count_orchestration(fn):
-    """Decorador: cuenta la orquestación como 'en vuelo' mientras corre (carga pesada)."""
+    """Decorator: counts the orchestration as in-flight while it runs (the heavy load)."""
     import functools
 
     @functools.wraps(fn)
@@ -200,9 +200,9 @@ def _count_orchestration(fn):
     return wrapper
 
 
-# ── FASE 29: orquestación asíncrona ("dispara y sondea") ─────────────────────
-# /orchestrate lanza el debate en un hilo de fondo y responde al instante; el
-# chat muestra los mensajes por su polling y consulta /api/orchestration-status.
+# ── Asynchronous orchestration: fire and poll ────────────────────────────────
+# /orchestrate starts the debate on a background thread and answers immediately.
+# The chat shows messages through its own polling and asks /api/orchestration-status.
 ORCH_MAX_CONCURRENT = 12          # tope de debates simultáneos en segundo plano (decisión PO)
 ORCH_STALE_SECONDS = 1800         # si una tarea 'running' no se actualiza en este tiempo -> se da por muerta
 _orch_lock = _threading.Lock()
@@ -243,9 +243,9 @@ def _orch_count_running():
 
 
 def _orch_get(thread):
-    """Snapshot del estado de un debate. Heartbeat: una tarea 'running' que lleva
-    demasiado sin actualizarse (p. ej. el server se reinició) se reporta 'stalled'
-    para que el cartel no gire para siempre."""
+    """Snapshot of a debate's state. Heartbeat: a 'running' task that has gone too long
+    without an update (the server restarted, say) is reported as 'stalled' so the
+    spinner does not spin forever."""
     with _orch_lock:
         t = _orch_tasks.get(thread)
         if not t:
@@ -256,17 +256,17 @@ def _orch_get(thread):
     return snap
 
 
-# ── FASE 28: muestreador de salud del sistema ────────────────────────────────
+# ── System health sampler ────────────────────────────────────────────────────
 ORCH_CAPACITY = 8                       # orquestaciones simultáneas que tomamos como "saturación" (ajustable tras la carga)
 HEALTH_DISK_PATH = os.path.abspath(os.sep)  # "/" en Linux, "C:\\" en Windows
 HEALTH_SAMPLE_INTERVAL = 30             # segundos entre muestras pasivas
-# Umbrales de ROJO confirmados por el PO (2026-06-23): capacidad >80, RAM >85, disco >75 (uso)
+# RED thresholds: capacity >80, RAM >85, disk usage >75.
 HEALTH_THRESHOLDS = {"capacity_pct": 80, "ram_pct": 85, "disk_used_pct": 75}
 _health_sampler_started = False
 
 
 def build_health_sample(eng):
-    """Foto actual de salud: métricas del SO + contadores en vuelo + capacidad."""
+    """Current health snapshot: OS metrics, in-flight counters and capacity."""
     m = system_metrics.read_system_metrics(HEALTH_DISK_PATH)
     cur, peak = get_inflight()
     cap = system_metrics.compute_capacity(m, inflight_orch=cur["orch"], orch_cap=ORCH_CAPACITY)
@@ -285,7 +285,7 @@ def build_health_sample(eng):
 
 
 def sample_system_health(eng):
-    """Toma una muestra y la persiste (para el histórico)."""
+    """Takes one sample and stores it, to build the history."""
     s = build_health_sample(eng)
     try:
         auth.record_system_health(eng, s)
@@ -295,9 +295,9 @@ def sample_system_health(eng):
 
 
 def _start_health_sampler():
-    """Hilo de fondo que muestrea cada HEALTH_SAMPLE_INTERVAL s. Debe correr DENTRO
-    del proceso del servidor para ver los contadores en vuelo reales. Se arranca solo
-    en producción (o con HUMANIA_HEALTH_SAMPLER=1); en tests no, para no escribir sola."""
+    """Background thread sampling every HEALTH_SAMPLE_INTERVAL seconds. It must run INSIDE
+    the server process to see the real in-flight counters. Started only in production
+    (or with HUMANIA_HEALTH_SAMPLER=1), never under tests, so it does not write on its own."""
     global _health_sampler_started
     if _health_sampler_started:
         return
@@ -316,21 +316,21 @@ def _start_health_sampler():
 
 ALERT_REMINDER_INTERVAL = 1800   # 30 min: recordatorio si SIGUE atascado en el mismo nivel
 
-# Alertas por NIVELES con histéresis (modelo estándar de monitorización, decisión PO 2026-06-26).
-# Cada métrica tiene varios umbrales ascendentes ("aviso" -> "crítico") y una línea de
-# RECUPERACIÓN por debajo de la cual el episodio se considera resuelto.
-#   - El umbral "aviso" coincide con HEALTH_THRESHOLDS (lo que pinta el panel /admin).
-#   - La línea de recuperación es el umbral "aviso" menos un DEADBAND de 10 puntos. Ese
-#     margen (histéresis) es la práctica estándar para evitar "flapping": que la métrica
-#     oscilando justo en el umbral dispare avisos/recuperaciones en bucle. Hay que bajar
-#     claramente (10 puntos) para dar el problema por cerrado.
-# Reglas (por métrica, estado en memoria del proceso):
-#   1) Sube a un nivel MÁS ALTO que el peor alcanzado en este episodio -> aviso INMEDIATO
-#      (se salta el silencio de 30 min: un empeoramiento siempre avisa).
-#   2) Se mantiene en el mismo nivel -> recordatorio cada ALERT_REMINDER_INTERVAL.
-#   3) Baja por debajo de la línea de recuperación -> aviso de RECUPERACIÓN (✅) y el
-#      episodio se REARMA: si vuelve a subir, cuenta como problema nuevo y vuelve a avisar.
-#   (Mejora parcial sin bajar de la línea de recuperación: no se avisa, sigue armado al peor nivel.)
+# Level-based alerting with hysteresis, the standard monitoring model.
+# Every metric has ascending thresholds ("warning" -> "critical") and a RECOVERY
+# line below which the episode counts as resolved.
+#   - The "warning" threshold matches HEALTH_THRESHOLDS (what /admin paints).
+#   - The recovery line is the "warning" threshold minus a 10-point DEADBAND. That
+#     margin is the standard way to avoid flapping: a metric hovering right at the
+#     threshold would fire warnings and recoveries in a loop. It has to drop
+#     clearly (10 points) before the problem is called closed.
+# Rules, per metric, with state kept in process memory:
+#   1) Rises ABOVE the worst level of this episode -> alert IMMEDIATELY, skipping
+#      the 30-minute quiet period: getting worse always warrants a warning.
+#   2) Stays at the same level -> a reminder every ALERT_REMINDER_INTERVAL.
+#   3) Falls below the recovery line -> a RECOVERY notice, and the episode is
+#      REARMED: if it climbs again it counts as a new problem and alerts again.
+#   Improving without crossing the recovery line is not reported: it stays armed.
 _ALERT_DEADBAND = 10
 ALERT_LEVELS = {
     "capacity": {"metric": "capacity_pct", "name": "Capacidad",
@@ -340,16 +340,16 @@ ALERT_LEVELS = {
     "disk":     {"metric": "disk_used_pct", "name": "Disco",
                  "levels": [(HEALTH_THRESHOLDS["disk_used_pct"], "aviso"), (90, "crítico")]},
 }
-# línea de recuperación = umbral de aviso - deadband
+# recovery line = warning threshold - deadband
 for _cfg in ALERT_LEVELS.values():
     _cfg["recovery"] = _cfg["levels"][0][0] - _ALERT_DEADBAND
 
-# estado por métrica: {"level": peor nivel alcanzado en el episodio (0=normal), "last_ts": float}
+# per-metric state: {"level": worst level in this episode (0=normal), "last_ts": float}
 _alert_state = {}
 
 
 def _level_for(value, levels):
-    """Devuelve el índice de nivel (0=normal, 1=aviso, 2=crítico...) del valor."""
+    """Returns the level index of a value (0=normal, 1=warning, 2=critical...)."""
     lvl = 0
     if value is not None:
         for i, (thr, _name) in enumerate(levels, start=1):
@@ -359,7 +359,7 @@ def _level_for(value, levels):
 
 
 def _alert_time_str():
-    """Hora 'HH:MM (Madrid)' para los avisos (el droplet corre en UTC). Fallback a UTC si no hay tz db."""
+    """Time as 'HH:MM (Madrid)' for the alerts; the server runs in UTC. Falls back to UTC without a tz db."""
     try:
         from zoneinfo import ZoneInfo
         from datetime import datetime
@@ -369,13 +369,13 @@ def _alert_time_str():
 
 
 def _health_alert_check(eng, sample=None):
-    """FASE 28.7 / 30+: vigila la salud y avisa por Telegram por NIVELES con histéresis
-    (ver ALERT_LEVELS). Avisa al empeorar de nivel (inmediato), recuerda cada 30 min si
-    persiste, y avisa de recuperación al volver a la normalidad. Silenciable con
+    """Watches health and alerts over Telegram by LEVELS, with hysteresis
+    (see ALERT_LEVELS). It alerts immediately when the level worsens, reminds every 30
+    minutes while it persists, and reports recovery on the way back to normal. Silenced with
     HUMANIA_ALERTS=0 (p. ej. durante una prueba de carga deliberada).
 
-    Se usa Telegram (no email) porque el droplet bloquea el SMTP saliente y para no
-    gastar el cupo de Resend, reservado al correo de los usuarios."""
+    Telegram rather than email because the host blocks outgoing SMTP, and to avoid
+    spending the Resend quota, which is reserved for users' mail."""
     if os.environ.get("HUMANIA_ALERTS", "1") != "1":
         return []
     s = sample or build_health_sample(eng)
@@ -398,14 +398,14 @@ def _health_alert_check(eng, sample=None):
             continue
         st = _alert_state.setdefault(key, {"level": 0, "last_ts": 0.0})
         cur = _level_for(value, cfg["levels"])
-        # (3) recuperación: estaba alertado y baja por debajo de la línea de recuperación
+        # (3) recovery: it was alerting and has dropped below the recovery line
         if st["level"] > 0 and value < cfg["recovery"]:
             if _emit(f"✅ [H2AI] {cfg['name']} recuperada: {value}%\n\nCondiciones: {cond}"):
                 st["level"] = 0
                 st["last_ts"] = now
                 sent.append(key)
             continue
-        # (1) empeora: nivel más alto que el peor del episodio -> aviso inmediato
+        # (1) worse: a level above the worst of this episode -> immediate alert
         if cur > st["level"]:
             label = cfg["levels"][cur - 1][1]
             if _emit(f"\U0001F6A8 [H2AI alerta] {cfg['name']} {label}: {value}%\n\nCondiciones: {cond}"):
@@ -419,13 +419,13 @@ def _health_alert_check(eng, sample=None):
                 if _emit(f"\U0001F6A8 [H2AI alerta] {cfg['name']} sigue en {label}: {value}%\n\nCondiciones: {cond}"):
                     st["last_ts"] = now
                     sent.append(key)
-        # cur < st["level"] pero >= recuperación: mejora parcial, no se avisa
+        # cur < st["level"] but still >= recovery: improving, but not worth an alert
     return sent
 
 def _docs_segun_entorno(env: str) -> dict:
-    """Las URLs de documentacion, o None en produccion. FastAPI sirve por defecto /docs, /redoc y
-    /openapi.json en cualquier entorno, y el openapi.json es el PLANO ENTERO de la API a la vista
-    de cualquiera sin credenciales. En dev se dejan (utiles, nada que proteger); en produccion,
+    """The documentation URLs, or None in production. FastAPI serves /docs, /redoc and
+    /openapi.json in every environment by default, and openapi.json is the COMPLETE BLUEPRINT
+    of the API, visible to anyone without credentials. They stay in dev, where they are useful
     fuera."""
     if env == "production":
         return {"docs_url": None, "redoc_url": None, "openapi_url": None}
@@ -438,8 +438,8 @@ engine = ConversationEngine(base_path=Path(__file__).parent.parent)
 auth.init_auth_tables(engine)
 auth.cleanup_expired(engine)  # GDPR 20.8e: minimizacion al arrancar
 auth.record_startup(engine, version=app.version)  # FASE 23: monitor de arranques/caidas
-# FASE 28: muestreador de salud en hilo de fondo. Solo en producción (o con el flag),
-# nunca bajo tests (escribiría solo en la BD). El panel funciona igual sin él (lee en vivo).
+# Background health sampler. Production only (or with the flag), never under tests,
+# where it would only write to the DB. The panel works without it: it reads live.
 if os.environ.get("HUMANIA_ENV", "dev") == "production" or os.environ.get("HUMANIA_HEALTH_SAMPLER") == "1":
     _start_health_sampler()
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "templates")), name="static")
@@ -456,32 +456,32 @@ _rate_store = defaultdict(list)
 @app.middleware("http")
 async def security_middleware(request, call_next):
     client_ip = request.client.host if request.client else "testclient"
-    # FASE 40.2: modo self-host "100% local" (docker-compose fija HUMANIA_LOCAL=1). En una
-    # instancia en tu propia máquina, un solo usuario, no hace falta login: se trata como
-    # local (admin, sin auth). staging/PROD NO ponen esa variable, así que no les afecta.
+    # Fully local self-host mode (docker-compose sets HUMANIA_LOCAL=1). On a single-user
+    # instance running on your own machine there is no point in a login, so the request
+    # is treated as local (admin, no auth). Staging and production never set that variable.
     is_local = client_ip in ("127.0.0.1", "::1", "localhost", "testclient") or os.environ.get("HUMANIA_LOCAL") == "1"
     protected = any(request.url.path.startswith(p) for p in ("/api/", "/orchestrate", "/turn/", "/message/", "/messages/")) and request.url.path != "/api/feedback"  # /api/feedback es publico: permite feedback anonimo (C)
 
-    # FASE 20.1 (hallazgo UAT PO 2026-06-12): el JWT del usuario se valida ANTES que el
-    # token maestro. Los navegadores de usuarios reales no tienen (ni deben tener) el
-    # token maestro: una sesion JWT valida da acceso a nivel de usuario con sus limites
-    # de plan (20.2). El token maestro queda como acceso de administracion/scripts.
+    # The user's JWT is validated BEFORE the master token. Real users' browsers do not
+    # have the master token, and should not: a valid JWT session grants user-level
+    # access with that user's plan limits. The master token is left for administration
+    # and scripts.
     user = None
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         payload = auth.decode_token(engine, auth_header[7:])
         if payload is None:
-            # FASE 40.2: en self-host local (HUMANIA_LOCAL=1) un token viejo/inválido NO
-            # bloquea: se ignora y se trata como usuario local (evita quedar atrapado en el
-            # login si el navegador guardó un token de otra sesión). staging/PROD sí cortan.
+            # In local self-host mode an old or invalid token does NOT block: it is ignored and
+            # the request is treated as a local user. Otherwise a token left over from another
+            # session would trap you at the login screen. Staging and production do reject it.
             if os.environ.get("HUMANIA_LOCAL") != "1":
                 return JSONResponse(status_code=401, content={"error": "Token invalido, expirado o revocado"})
         else:
             user = {"user_id": int(payload["sub"]), "email": payload.get("email", ""),
                     "name": payload.get("name", ""), "plan": payload.get("plan", "free")}
 
-    # compare_digest y no ==, para que comparar el token maestro tarde lo mismo se acierte por
-    # donde se acierte: con == se puede, en teoria, adivinarlo byte a byte midiendo tiempos.
+    # compare_digest, not ==, so that comparing the master token takes the same time no
+    # matter where it differs: with == it can, in theory, be guessed byte by byte by timing.
     master_ok = bool(SECRET_TOKEN) and secrets.compare_digest(
         request.headers.get("X-Humania-Token") or "", SECRET_TOKEN)
     if protected and not is_local and user is None and not master_ok:
@@ -561,7 +561,7 @@ def submit_feedback(req: FeedbackRequest, request: Request):
 
 @app.get("/health")
 def health():
-    """Comprobacion de salud para el smoke post-deploy: app viva + BD accesible."""
+    """Health check for the post-deploy smoke test: app alive and database reachable."""
     try:
         conn = engine._get_conn()
         conn.execute("SELECT 1")
@@ -576,7 +576,7 @@ ADMIN_EMAIL = os.environ.get("HUMANIA_ADMIN_EMAIL", "contact@h2aichat.com").stri
 
 def _is_admin(request: Request) -> bool:
     """Admin = email administrador, token maestro o dev/local (ambos = DEV_USER).
-    FASE 40.2: en self-host local (HUMANIA_LOCAL=1) el único usuario es el admin de su
+    In local self-host mode (HUMANIA_LOCAL=1) the only user is the admin of their own
     propia instancia -> siempre admin. staging/PROD no ponen la variable."""
     if os.environ.get("HUMANIA_LOCAL") == "1":
         return True
@@ -586,11 +586,11 @@ def _is_admin(request: Request) -> bool:
         return True
     if email != ADMIN_EMAIL:
         return False
-    # EL CORREO COINCIDE, PERO ESO SOLO NO BASTA. Ser admin no puede ser «tener una cuenta con
-    # este correo»: tiene que ser «tenerlo Y HABERLO VERIFICADO Y estar activa». Sin esto,
-    # cualquiera que despliegue su instancia y no cambie HUMANIA_ADMIN_EMAIL hereda el correo por
-    # defecto y se autoproclama admin dandose de alta con el —sin tener acceso a esa bandeja—.
-    # Se lee fresco de la base porque el token no lleva ese dato.
+    # A MATCHING EMAIL IS NOT ENOUGH ON ITS OWN. Being admin cannot mean "holding an account
+    # with this address": it has to mean holding it, HAVING VERIFIED it, and being active.
+    # Otherwise anyone deploying their own instance without changing HUMANIA_ADMIN_EMAIL
+    # inherits the default address and makes themselves admin by signing up with it,
+    # without any access to that mailbox. Read fresh from the DB: the token lacks this.
     fresh = auth.get_user(engine, user.get("user_id"))
     return bool(fresh and fresh.get("email_verified") and fresh.get("status") == "active"
                 and (fresh.get("email") or "").strip().lower() == ADMIN_EMAIL)
@@ -603,8 +603,8 @@ def _require_admin(request: Request):
 
 @app.get("/api/admin/stats")
 def admin_stats_endpoint(request: Request):
-    """Panel /admin: solo el email administrador. FASE 40.2: en self-host local
-    (HUMANIA_LOCAL=1) el único usuario es el admin de su instancia -> se permite."""
+    """The /admin panel: administrator address only. In local self-host mode
+    (HUMANIA_LOCAL=1) the only user is the admin of that instance, so it is allowed."""
     if os.environ.get("HUMANIA_LOCAL") != "1":
         user = getattr(request.state, "user", None)
         if not user or (user.get("email") or "").strip().lower() != ADMIN_EMAIL:
@@ -615,7 +615,7 @@ def admin_stats_endpoint(request: Request):
 @app.get("/api/admin/feedback/comments")
 def admin_feedback_comments(request: Request, limit: int = 100):
     """Panel /admin (FASE 20.7.1): comentarios de texto dejados en conversaciones. Solo lectura,
-    solo admin. Sin paginacion aun (Fase 37.x): ultimos `limit` (tope 100)."""
+    admin only. No pagination yet: the latest `limit` entries, capped at 100."""
     _require_admin(request)
     return auth.list_conversation_comments(engine, limit=min(int(limit), 100))
 
@@ -745,11 +745,11 @@ def admin_orch_times(request: Request, limit: int = 50):
     return auth.list_orch_times(engine, limit=min(int(limit), 500))
 
 
-# ── FASE 28: salud del sistema ───────────────────────────────────────────────
+# ── System health ────────────────────────────────────────────────────────────
 @app.get("/api/admin/health")
 def admin_health(request: Request, record: int = 0):
-    """Foto EN VIVO de la salud (calculada al momento). Con ?record=1 también la
-    guarda en el histórico (lo usa el arnés de carga para densificar la serie)."""
+    """LIVE health snapshot, computed on the spot. With ?record=1 it is also stored
+    in the history, which the load harness uses to thicken the series."""
     _require_admin(request)
     sample = build_health_sample(engine)
     if record:
@@ -778,8 +778,8 @@ def admin_health_peak(request: Request):
 
 @app.post("/api/admin/health/reset")
 def admin_health_reset(request: Request):
-    """Pone a CERO las estadísticas de observabilidad (botón del panel): vacía la
-    gráfica de salud + el récord de pico + los tiempos + la basura del arnés, y
+    """RESETS the observability statistics (a button on the panel): clears the health
+    chart, the peak record, the timings and the leftovers of the load harness, and
     resetea los contadores en memoria (picos en vuelo, salud LLM, 5xx). NO borra
     cuentas, conversaciones reales ni feedback."""
     _require_admin(request)
@@ -796,7 +796,7 @@ def admin_health_reset(request: Request):
 
 @app.post("/api/admin/backup")
 def admin_backup(request: Request):
-    """FASE 28: copia de seguridad de la BD bajo demanda (botón del panel)."""
+    """On-demand database backup (a button on the panel)."""
     _require_admin(request)
     path, size = engine.backup_db()
     return {"ok": True, "file": os.path.basename(path), "bytes": size}
@@ -831,7 +831,7 @@ def admin_set_plan_limits(request: Request, limits: dict):
     return {"success": True, "limits": clean}
 
 
-# FASE 27: el ENGRANAJE de cada usuario (su config, acotada por su plan). No es admin: cada
+# Each user's own settings, bounded by their plan. Not an admin endpoint: every
 # usuario logueado ajusta lo SUYO.
 @app.get("/api/me/prefs")
 def get_my_prefs(request: Request):
@@ -848,7 +848,7 @@ def get_my_prefs(request: Request):
 
 @app.post("/api/me/profile")
 def set_my_profile(request: Request, body: dict):
-    """FASE 29: cambiar el nombre del usuario (con el que las IAs le llaman en los debates)."""
+    """Change the user's name, the one the AIs use to address them in debates."""
     user = getattr(request.state, "user", None) or dict(auth.DEV_USER)
     uid = user.get("user_id")
     if not uid:
@@ -878,13 +878,13 @@ def set_my_prefs(request: Request, prefs: dict):
             ids = [m for m in prefs["models"] if m in cat and (allow_or or cat[m].get("provider") != "openrouter")]
             clean["models"] = ids[:int(limits.get("max_models", 3))]
         if prefs.get("system_prompt_extra") is not None:
-            # Opción A: instrucciones extra del usuario (se suman al prompt base). Tope de tamaño.
+            # Extra instructions from the user, appended to the base prompt. Size-capped.
             clean["system_prompt_extra"] = str(prefs["system_prompt_extra"])[:2000]
     except (ValueError, TypeError):
         raise HTTPException(status_code=400, detail="Valores de configuracion no validos")
     auth.set_user_prefs(engine, uid, clean)
-    # FASE 27: registrar/activar las IAs elegidas para que aparezcan ACTIVAS (verdes) en el chat
-    # aunque un perfil global las hubiera marcado inactivas.
+    # Register and activate the chosen AIs so they show up ACTIVE (green) in the chat
+    # even if a global profile had marked them inactive.
     cat = {m["id"]: m for m in get_model_catalog(engine)}
     for mid in clean.get("models", []):
         m = cat.get(mid)
@@ -897,7 +897,7 @@ def set_my_prefs(request: Request, prefs: dict):
 
 @app.get("/api/me/models")
 def get_my_models(request: Request):
-    """Pieza B: las IAs que ESTE usuario puede elegir (catálogo filtrado por su plan) + su selección."""
+    """The AIs THIS user may choose (catalogue filtered by their plan), plus their selection."""
     user = getattr(request.state, "user", None) or dict(auth.DEV_USER)
     limits = get_plan_limits(engine).get(user.get("plan") or "free", PLAN_LIMITS_DEFAULT["free"])
     allow_or = bool(limits.get("openrouter"))
@@ -918,7 +918,7 @@ class ShareRequest(BaseModel):
 
 @app.post("/api/conversations/share")
 def share_conversation(req: ShareRequest, request: Request):
-    """Opt-in granular: el usuario consiente (o retira) publicar una conversación SUYA, anonimizada."""
+    """Granular opt-in: the user grants or withdraws consent to publish a conversation of THEIRS, anonymised."""
     user = getattr(request.state, "user", None)
     uid = user.get("user_id") if user else None
     if not uid:
@@ -929,7 +929,7 @@ def share_conversation(req: ShareRequest, request: Request):
     return {"success": True, "shared": bool(req.consent)}
 
 
-# ── Fase 34: enlace publico por conversacion (snapshot inmutable + URL para posts) ──
+# ── Public link per conversation: an immutable snapshot plus a shareable URL ──
 
 class ShareLinkRequest(BaseModel):
     lang: str = Field("es", max_length=8)
@@ -943,18 +943,18 @@ def _clean_text(s, n):
 
 
 def _build_share_snapshot(uid, thread_id, lang):
-    """Congela el estado ACTUAL de la conversacion (snapshot inmutable para el enlace)."""
+    """Freezes the CURRENT state of the conversation: an immutable snapshot for the link."""
     from datetime import datetime as _dt
     msgs = engine.get_thread_context(thread_id, limit=100000)  # todos, orden ascendente
     fresh = auth.get_user(engine, uid) or {}
     mod_name = (fresh.get("name") or "").strip() or (fresh.get("email") or "").split("@")[0] or "Moderador"
-    # FASE 31: el moderador es por-usuario (su email). Detectamos su remitente en los mensajes;
-    # 'miguel' se mantiene como fallback para hilos antiguos anteriores a la refactorizacion.
+    # The moderator is per-user (their email). We detect their sender in the messages;
+    # 'miguel' stays as a fallback for threads older than that change.
     _email = (fresh.get("email") or "").strip().lower()
     mod_sender = next((s for s in (_email, "miguel") if s and any(m.get("sender") == s for m in msgs)), _email or "miguel")
     first_mod = next((m for m in msgs if m.get("sender") == mod_sender), (msgs[0] if msgs else None))
     first_other = next((m for m in msgs if m.get("sender") != mod_sender), None)
-    # El titulo NO se guarda: el render lo deriva del primer mensaje (siempre completo). Aqui solo desc (og).
+    # The title is NOT stored: rendering derives it from the first message. Only the description is.
     desc = _clean_text((first_other or first_mod or {}).get("body", ""), 200)
     return {
         "thread_id": thread_id,
@@ -985,7 +985,7 @@ def _require_owner(request: Request, thread_id: str):
 
 @app.post("/api/conversations/{thread_id}/share")
 def create_conversation_share_link(thread_id: str, req: ShareLinkRequest, request: Request):
-    """Crea (o 'Actualiza': re-congela sobre el mismo token) el enlace publico de una conversacion propia."""
+    """Creates the public link of one's own conversation, or refreshes the snapshot behind the same token."""
     uid = _require_owner(request, thread_id)
     snapshot = _build_share_snapshot(uid, thread_id, req.lang)
     if not snapshot["messages"]:
@@ -1013,12 +1013,12 @@ def get_conversation_share_link(thread_id: str, request: Request):
 
 @app.get("/c/{token}", response_class=HTMLResponse)
 def serve_shared_conversation(token: str, request: Request):
-    """Pagina PUBLICA (sin login) de una conversacion compartida. Render server-side + tarjeta social."""
+    """PUBLIC page (no login) of a shared conversation. Server-side render plus social card."""
     lang = resolve_web_lang(request.query_params.get("lang"), request.cookies.get("web_lang"),
                             request.headers.get("accept-language"))
     base = email_sender.base_url()
     link = auth.get_share_link(engine, token)
-    # Enlace inexistente, revocado o corrupto -> a la home directamente (hallazgo PO).
+    # Missing, revoked or corrupted link -> straight to the home page.
     if not link:
         return RedirectResponse(url="/web", status_code=302)
     try:
@@ -1056,7 +1056,7 @@ def auth_register(req: RegisterRequest):
                                           accept_terms=req.accept_terms, confirm_adult=req.confirm_adult)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    # FASE 20.4b: email de verificacion (el registro no falla si el envio falla)
+    # Verification email. Signing up does not fail if sending the email fails.
     try:
         vtoken = auth.create_verification(engine, user["user_id"])
         email_sender.send_verification_email(user["email"], vtoken)
@@ -1104,7 +1104,7 @@ def auth_logout(request: Request):
 
 
 def _auth_page(title: str, body_html: str) -> str:
-    """Mini-pagina autocontenida con el estilo de la marca para verify/reset."""
+    """Self-contained mini page in the brand style, for verify and reset."""
     return f"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>{title} — H2AI Chat</title>
 <style>body{{font-family:system-ui,sans-serif;background:#f6f5f2;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}}
@@ -1168,7 +1168,7 @@ def auth_forgot_password(req: ForgotPasswordRequest, request: Request):
             traceback.print_exc()
     else:
         _record_failed_login(request)  # cuenta intentos sobre emails inexistentes (anti-enumeracion)
-    # Respuesta neutra SIEMPRE: no revela si el email existe (plan 20.3a)
+    # ALWAYS a neutral answer: it must not reveal whether the address exists.
     return {"success": True, "message": "Si el email existe, recibiras un enlace"}
 
 
@@ -1259,9 +1259,9 @@ def serve_frontend():
 
 @app.get("/chat", response_class=HTMLResponse)
 def serve_chat():
-    # FASE 20.1 (hallazgo UAT PO): la SPA debe poder cargarse sin sesion en el header —
-    # el navegador no envia el JWT al navegar; la propia SPA valida via /auth/me y
-    # devuelve a /web a quien no tenga sesion valida (logica de 20.2f).
+    # The SPA has to load without a session in the header: browsers do not send the JWT
+    # when navigating, so the SPA itself validates through /auth/me and sends anyone
+    # without a valid session back to /web.
     return serve_frontend()
 
 
@@ -1281,23 +1281,23 @@ def serve_website(request: Request):
     web_path = Path(__file__).parent / "templates" / "indexweb.html"
     if not web_path.exists():
         return HTMLResponse("<h1>H2AI Chat</h1><p>Website no encontrado</p>")
-    # FASE 33.1: render i18n server-side. AC-9: ?lang -> cookie -> idioma del navegador (Accept-Language) -> ES.
+    # Server-side i18n rendering. Order: ?lang -> cookie -> Accept-Language -> Spanish.
     lang = resolve_web_lang(request.query_params.get("lang"), request.cookies.get("web_lang"), request.headers.get("accept-language"))
     html = render_web(web_path.read_text(encoding="utf-8"), lang)
-    # FASE 36.2: header y footer = COMPONENTE compartido (chrome.py), el MISMO que monta el
-    # banco /preguntas. Se inyecta aqui (modo SPA: navTo + estados de login).
+    # Header and footer are a shared component (chrome.py), the SAME one used by the
+    # /preguntas gallery. Injected here in SPA mode: navTo plus login states.
     import chrome
     html = html.replace("<!--CHROME_NAV-->", chrome.render_nav(lang, mode="spa"), 1)
     html = html.replace("<!--CHROME_FOOTER-->", chrome.render_footer(lang, mode="spa"), 1)
-    # FASE 33.1 T5: galería = datos por idioma, renderizada en servidor (SEO)
+    # The gallery is per-language data rendered on the server, for SEO.
     html = html.replace('<div id="galleryGrid" style="margin-top:24px"></div>',
                         f'<div id="galleryGrid" style="margin-top:24px">{render_gallery(lang)}</div>')
-    # FASE 33.1 (capa cliente): inyectar idioma + claves web.* para que el JS traduzca lo que pinta
+    # Client side: inject the language and the web.* keys so the JS can translate what it paints.
     _web_strings = {k: v for k, v in TRANSLATIONS[lang].items() if k.startswith("web.")}
     _inject = ("<script>window.WEB_LANG=%s;window.WEB_I18N=%s;</script>"
                % (json.dumps(lang), json.dumps(_web_strings, ensure_ascii=False)))
     html = html.replace("</head>", _inject + "</head>", 1)
-    # FASE 36.3: SEO de la home (description/OG/canonical/hreflang/robots) — via seo.py, como el resto del sitio.
+    # Home-page SEO (description, OG, canonical, hreflang, robots) through seo.py, like the rest of the site.
     _base_url = email_sender.base_url()
     _canonical = _base_url + "/web" + ("?lang=en" if lang == "en" else "")
     _home_title = ("H2AI Chat — Plataforma de diálogo multi-agente de inteligencia artificial"
@@ -1321,8 +1321,8 @@ def _resolve_conversation(path: str):
     idioma (en/, y a futuro es/). Anti-traversal: el fichero debe estar contenido en
     conversations/. Devuelve el Path si existe y es .html; si no, None."""
     base = (Path(__file__).parent.parent / "conversations").resolve()
-    # T6: ES movido a es/. Probamos la ruta tal cual y, si no existe, en es/ (las
-    # URLs planas antiguas —prensa, marcadores— siguen resolviendo sin romperse).
+    # Spanish pages moved under es/. We try the path as given and then under es/, so the
+    # old flat URLs handed to the press or saved as bookmarks keep resolving.
     for candidate in (path, f"es/{path}"):
         p = (base / candidate).resolve()
         if p.is_file() and p.suffix == ".html" and base in p.parents:
@@ -1365,7 +1365,7 @@ def sitemap_xml():
         _url(base + "/web", prio="1.0"),
         _url(base + "/web?lang=en", prio="0.9"),
         _url(base + "/preguntas", prio="0.9"),
-        # FASE 36.3: la raiz "/" (app de chat, tras login) NO va en el sitemap; la home canonica es /web.
+        # The root "/" is the chat app behind a login, so it is NOT in the sitemap: /web is the canonical home.
     ]
     for rel, meta in sorted(i18n.GALLERY_SEO_INDEX.items()):
         loc = base + "/conversations/" + quote(rel, safe="/")
