@@ -125,8 +125,8 @@ class ConversationEngine:
     def _acquire_lock(self, lock_name: str = "turnfile", timeout: float = None) -> str:
         # Under concurrency, several THREADS competed for the same os.mkdir and exhausted the
         # retries, which surfaced as a BlockingIOError and an HTTP 500. Threads inside the process
-        # are now serialised with a FAIR lock, so
-        # inanicion) y CON timeout (ante un doble-acquire o un bug falla fuerte, nunca cuelga).
+        # are now serialised with a FAIR lock (first in, first served, so nobody starves)
+        # and WITH a timeout: on a double-acquire or a bug it fails loudly, it never hangs.
         # os.mkdir is left only for exclusion BETWEEN PROCESSES (the server and the recovery
         # daemon), where contention is minimal and short.
         _t0 = time.time()

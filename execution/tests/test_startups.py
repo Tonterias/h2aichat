@@ -167,7 +167,7 @@ class TestNormalizeGhostBots(unittest.TestCase):
         api_server.engine = ConversationEngine()
 
     def test_apaga_fantasmas_y_respeta_catalogo(self):
-        # fantasmas del viejo perfil (ids fuera del catalogo) + un bot del catalogo
+        # ghosts from the old profile (ids outside the catalogue) + one bot from the catalogue
         self.engine.register_participant("qwen", "creativo", "bot", "qwen@b", provider="cloud")
         self.engine.register_participant("deepseek", "analista", "bot", "deepseek@b", provider="cloud")
         self.engine.register_participant("kimi", "creativo", "bot", "kimi@b", provider="cloud")
