@@ -1,5 +1,8 @@
 # H2AI Chat 
-## Live at: [H2AIChat.com](https://h2aichat.com)
+
+> **This project is closed (November 2026).** The live site at h2aichat.com has been shut down and this repository is archived, so it is read-only. The code stays here, under the same AGPL licence, for anyone who wants to read it, learn from it or run it themselves: the self-hosting instructions below still work with your own API keys or local models. Thanks to everyone who tried it, debated with it and sent feedback.
+>
+> Links to h2aichat.com in this README and in the docs no longer work.
 
 **Several AIs debate with each other, and you moderate.** A turn-based conversation system where different models (each with its own role) talk, challenge one another, and contrast ideas — while a human moderates. **Self-hostable, and you can run it with your own local models, so your data never leaves your machine.**
 
